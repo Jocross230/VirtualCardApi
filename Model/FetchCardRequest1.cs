@@ -2,8 +2,8 @@
 {
     public class FetchCardRequest1
     {
-        public object clientReference { get; set; }
-        public object accountNumber { get; set; }
+        
         public string cardReference { get; set; }
+        public string pin { get; set; }
     }
 }

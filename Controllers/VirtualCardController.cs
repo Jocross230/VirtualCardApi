@@ -44,13 +44,13 @@ namespace VirtualCard.Controllers
             return Ok(response);
         }
         
-        [HttpPost("FetchCard_CardReference")]
+        [HttpPost("FetchCard_ClientReference")]
         public async Task<IActionResult> FetchCards([FromBody] FetchCardRequest request)
         {
             var response = await _visualCard.FetchCardExcludedAsync(request);
             return Ok(response);
         }
-        [HttpPost("FetchCard-Status-included-from-response")]
+        [HttpPost("FetchCard-CardReference")]
         public async Task<IActionResult> FetchCard([FromBody] FetchCardRequest1 req)
         {
             var response = await _visualCard.FetchCardIncludedAsync(req);

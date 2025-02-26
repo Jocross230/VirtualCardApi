@@ -331,7 +331,7 @@ namespace VisualCard.Services
 
                 // Create the HTTP client and request
                 var client = new RestClient("https://virtualcard-middleware-isw.k8.isw.la");
-                var request = new RestRequest("/virtualcard/api/v1/createCard", Method.Post)
+                var request = new RestRequest("/virtualcard/api/v1/fetchCards", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
