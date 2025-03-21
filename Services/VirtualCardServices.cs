@@ -1,39 +1,45 @@
 ﻿using Newtonsoft.Json;
-using Org.BouncyCastle.Asn1.Ocsp;
-using Org.BouncyCastle.Ocsp;
 using RestSharp;
 using System.Net.Http.Headers;
 using System.Text;
-using VirtualCard.Model;
 using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
 using VisualCard.Model;
+using VirtualCard.Request;
 using RestClientOptions = RestSharp.RestClientOptions;
+using Microsoft.EntityFrameworkCore;
+using VirtualCard.Data;
+using static SunTrustProxy;
+using Org.BouncyCastle.Asn1.Ocsp;
+using Newtonsoft.Json.Linq;
+using System.Security.Cryptography;
 
 namespace VisualCard.Services
 {
     public class VirtualCardServices : IVirtualCard
     {
-        private readonly string _encryptionKey;
+        
 
 
         public readonly HttpClient _httpClient;
         public readonly ILogger<VirtualCardServices> _logger;
+        public readonly VirtualCardDbContext _context;
 
         private readonly IConfiguration _configuration;
         private readonly ICryptoUtils _cryptoUtils;
         private readonly GenerateTokens _generateToken;
         private readonly RestClient _client;
 
-        public VirtualCardServices(ILogger<VirtualCardServices> logger, GenerateTokens generateToken, IConfiguration configuration, HttpClient httpClient, ICryptoUtils cryptoUtils)
+        public VirtualCardServices(VirtualCardDbContext context,ILogger<VirtualCardServices> logger, GenerateTokens generateToken, IConfiguration configuration, HttpClient httpClient, ICryptoUtils cryptoUtils)
         {
+            _context= context;
             _logger = logger;
             _configuration = configuration;
             _httpClient = httpClient;
             _cryptoUtils = cryptoUtils;
             _generateToken = generateToken;
-            _encryptionKey = _configuration["AppSettings:enc_key"];
+            
             var options = new RestClientOptions(_configuration.GetValue<string>("BaseUrl"))
             {
                 MaxTimeout = -1
@@ -41,12 +47,12 @@ namespace VisualCard.Services
             _client = new RestClient(options);
         }
 
-        public async Task<String> BlockCardAsync(BlockCardRequest req)
+        public async Task<String> BlockCardAsync(BlockCard BlockedCards)
         {
            
 
             // Serialize the request
-            var json = JsonConvert.SerializeObject(req);
+            var json = JsonConvert.SerializeObject(BlockedCards);
             string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
 
             // 3. Validate Base64 encoding
@@ -80,21 +86,21 @@ namespace VisualCard.Services
             //return decryptdata;
 
             string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
-
+            
             return decryptedData;
 
 
         }
 
-        public async Task<string> ChangeCardPinAsync(CardPinChangeRequest req)
+        public async Task<string> ChangeCardPinAsync(ChangePinRequest pinChangeRequest)
         {
 
-            var json = JsonConvert.SerializeObject(req);
+            var json = JsonConvert.SerializeObject(pinChangeRequest);
 
             // Encrypt the request data and ensure proper encoding
             string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
 
-            // Validate Base64 format
+            
 
 
             // Get a fresh access token
@@ -125,14 +131,14 @@ namespace VisualCard.Services
 
         }
 
-        public async Task<string> ResetCardPinAsync(CardPinResetRequest req)
+        public async Task<string> ResetCardPinAsync(ResetPinRequest ResetPinRequests)
         {
-            var json = JsonConvert.SerializeObject(req);
+            var json = JsonConvert.SerializeObject(ResetPinRequests);
 
             // Encrypt the request data and ensure proper encoding
             string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
 
-            // Validate Base64 format
+            
 
 
             // Get a fresh access token
@@ -161,7 +167,7 @@ namespace VisualCard.Services
             string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
             return decryptdata;
 
-            //return await response.Content.ReadAsStringAsync();
+            
 
         }
 
@@ -172,7 +178,7 @@ namespace VisualCard.Services
             // Encrypt the request data and ensure proper encoding
             string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
 
-            // Validate Base64 format
+            
 
 
             // Get a fresh access token
@@ -202,19 +208,19 @@ namespace VisualCard.Services
             return decryptdata;
         }
         
-        public async Task<string> CreateCardAsync(CreateCardRequest req)
+        public async Task<string> CreateCardAsync(CreateCard CreateCards)
         {
             try
             {
                 // Generate a unique client reference
                 var clientReference = Guid.NewGuid().ToString();
-                req.GetType().GetProperty("clientReference")?.SetValue(req, clientReference);
+                CreateCards.GetType().GetProperty("clientReference")?.SetValue(CreateCards, clientReference);
 
                 // Serialize the request
-                var json = JsonConvert.SerializeObject(req);
+                var json = JsonConvert.SerializeObject(CreateCards);
 
                 // Encrypt the request data
-                string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
+                string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:denc_key"]);
 
                 // Validate Base64 format
                 if (!IsBase64String(encryptedData))
@@ -243,8 +249,29 @@ namespace VisualCard.Services
                 }
 
                 // Decrypt the response data
-                string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
-
+                string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
+               /* var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
+                var decryptedCardData = new CreatedCard
+                {
+                    alias=decryptedCardResponse.card.alias,
+                    clientReference= decryptedCardResponse.card.clientReference,
+                    cardReference= decryptedCardResponse.card.cardReference,
+                    accountNumber=decryptedCardResponse.card.accountNumber,
+                    pan= MaskPan(decryptedCardResponse.card.pan),
+                    seqNr=decryptedCardResponse.card.seqNr,
+                    issuerNr=decryptedCardResponse.card.issuerNr,
+                    userId=decryptedCardResponse.card.userId,
+                    pinOffset=decryptedCardResponse.card.pinOffset,
+                    customerId=decryptedCardResponse.card.customerId,
+                    defaultAccountType=decryptedCardResponse.card.defaultAccountType,
+                    blocked=decryptedCardResponse.card.blocked,
+                    failedPinAttempts=decryptedCardResponse.card.failedPinAttempts,
+                    creationChannel=decryptedCardResponse.card.creationChannel,
+                    
+                };
+                // Add to DbContext and save
+                await _context.CreatedCards.AddAsync(decryptedCardData);
+                await _context.SaveChangesAsync();*/
                 return decryptedData;
             }
             catch (Exception ex)
@@ -267,6 +294,15 @@ namespace VisualCard.Services
             {
                 return false;
             }
+        }
+        private string MaskPan(string pan)
+        {
+            if (string.IsNullOrEmpty(pan) || pan.Length < 10)
+                throw new ArgumentException("PAN must be at least 10 digits long.", nameof(pan));
+
+            int maskLength = pan.Length - 10;
+            string maskedSection = new string('*', maskLength);
+            return pan.Substring(0, 6) + maskedSection + pan.Substring(pan.Length - 4);
         }
 
 
@@ -434,9 +470,9 @@ namespace VisualCard.Services
             return decryptdata;
         }
 
-        public async Task<string> UnblockCardAsync(UnBlockCardRequest request)
+        public async Task<string> UnblockCardAsync(UnBlockCard UnBlockedCards)
         {
-            var json = JsonConvert.SerializeObject(request);
+            var json = JsonConvert.SerializeObject(UnBlockedCards);
 
             // Encrypt the request data and ensure proper encoding
             string encryptedData = _cryptoUtils.EncryptData(json, _configuration["AppSettings:enc_key"]);
@@ -470,6 +506,50 @@ namespace VisualCard.Services
             string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
             return decryptdata;
         }
+
+        public async Task<CreatedCard> GetByAccountNumberAsync(string accountNumber)
+        {
+            var result = await _context.CreatedCards.FirstOrDefaultAsync();
+            if (result != null)
+            {
+                var staff = await _context.CreatedCards.FirstOrDefaultAsync(s => s.accountNumber ==accountNumber);
+
+            }
+            return result;
+        }
+       
+       public async Task<string>TransactionDisputeAsync(TransectionDispute dis) 
+       {
+            var response = SunTrustProxy.SendEmail(
+                    dis.Subject,
+                    "notifications@suntrustng.com",
+                    dis.To,
+                    dis.Message,
+                    dis.Bcc,
+                    dis.Cc,
+                    false
+                );
+            var emailResponse = JsonConvert.DeserializeObject<EmailResponse>(response.ToString());
+
+            // Check if response is successful
+            if (emailResponse?.ResponseCode == "00")
+            {
+                // Save the dispute to the database
+                
+                
+                    _context.VirtualCardTransactionDisputes.Add(dis); // Use context instead of _context
+                    await _context.SaveChangesAsync();
+                
+
+                return "Dispute sent Successfully ";
+            }
+
+            return "Email sending failed!";
+            
+        }
+        
+
+        
     }
 }
 

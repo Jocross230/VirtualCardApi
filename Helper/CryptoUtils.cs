@@ -30,11 +30,11 @@ public class CryptoUtils :ICryptoUtils
     }
 
     // Encrypt the data using AES CBC mode with PKCS7 padding
-    public string EncryptData(string data, string enc_key)
+    public string EncryptData(string data, string denc_key)
     {
         using (var aesAlg = new AesCryptoServiceProvider())
         {
-            aesAlg.Key = GetAESKey(enc_key);
+            aesAlg.Key = GetAESKey(denc_key);
             aesAlg.IV = new byte[16]; // IV set to zero for this example
 
             aesAlg.Mode = CipherMode.CBC;
@@ -51,17 +51,17 @@ public class CryptoUtils :ICryptoUtils
     }
 
     // Decrypt the data using AES CBC mode with PKCS7 padding
-    public string DecryptData(string encryptedData, string enc_key)
+    public string DecryptData(string encryptedData, string denc_key)
     {
             using (var aesAlg = new AesCryptoServiceProvider())
             {
-                aesAlg.Key = GetAESKey(enc_key);
-                aesAlg.IV = new byte[16]; // IV set to zero for this example
+            aesAlg.Key = GetAESKey(denc_key);
+            aesAlg.IV = new byte[16]; // IV set to zero for this example
 
-                aesAlg.Mode = CipherMode.CBC;
-                aesAlg.Padding = PaddingMode.PKCS7;
+            aesAlg.Mode = CipherMode.CBC;
+            aesAlg.Padding = PaddingMode.PKCS7;
 
-                ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
+            ICryptoTransform decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
 
                 byte[] encryptedBytes = Convert.FromBase64String(encryptedData);
                 byte[] decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);

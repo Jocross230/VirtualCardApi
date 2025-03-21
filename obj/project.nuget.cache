@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "dgSpecHash": "NYRU3ZpsrbUKGxaAk2iIuXpLkPpnnG1SSmttxQ9eNulv+7ppXt2tFKqA95ua1pXvlNB0QDqSer1MgtV+pbXIzg==",
+  "dgSpecHash": "uyvViQYtQ5kTHYpweaycXUNBLF4YgK+VsB1Co+8fpopRLg1/bzDPNtwXH0AEb4AtHEuiUZjjXRrXpOYAtqu1Dw==",
   "success": true,
   "projectFilePath": "C:\\Users\\Josiah.Onyeje\\source\\repos\\VirtualCard\\VirtuallCard\\VirtualCard.csproj",
   "expectedPackageFiles": [
@@ -48,6 +48,7 @@
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.diagnostics.diagnosticsource\\6.0.2\\system.diagnostics.diagnosticsource.6.0.2.nupkg.sha512",
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.drawing.common\\4.7.3\\system.drawing.common.4.7.3.nupkg.sha512",
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.identitymodel.tokens.jwt\\6.36.0\\system.identitymodel.tokens.jwt.6.36.0.nupkg.sha512",
+    "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.net.mail.abstractions\\1.1.21\\system.net.mail.abstractions.1.1.21.nupkg.sha512",
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.runtime.caching\\4.7.0\\system.runtime.caching.4.7.0.nupkg.sha512",
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.security.accesscontrol\\4.7.0\\system.security.accesscontrol.4.7.0.nupkg.sha512",
     "C:\\Users\\Josiah.Onyeje\\.nuget\\packages\\system.security.cryptography.cng\\4.5.0\\system.security.cryptography.cng.4.5.0.nupkg.sha512",

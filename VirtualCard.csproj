@@ -17,6 +17,13 @@
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.2.3" />
+    <PackageReference Include="System.Net.Mail.Abstractions" Version="1.1.21" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Proxy">
+      <HintPath>..\..\CodeOfConduct\CodeOfConduct\Proxy.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
 </Project>

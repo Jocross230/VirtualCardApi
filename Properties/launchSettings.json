@@ -9,7 +9,7 @@
     }
   },
   "profiles": {
-    "VisualCard": {
+    "VirtualCard": {
       "commandName": "Project",
       "dotnetRunMessages": true,
       "launchBrowser": true,

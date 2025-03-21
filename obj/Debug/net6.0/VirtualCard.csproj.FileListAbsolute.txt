@@ -77,6 +77,13 @@ C:\Users\Josiah.Onyeje\source\repos\VisualCard\VisualCard\obj\Debug\net6.0\refin
 C:\Users\Josiah.Onyeje\source\repos\VisualCard\VisualCard\obj\Debug\net6.0\VirtualCard.pdb
 C:\Users\Josiah.Onyeje\source\repos\VisualCard\VisualCard\obj\Debug\net6.0\VirtualCard.genruntimeconfig.cache
 C:\Users\Josiah.Onyeje\source\repos\VisualCard\VisualCard\obj\Debug\net6.0\ref\VirtualCard.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.csproj.AssemblyReference.cache
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.AssemblyInfoInputs.cache
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.AssemblyInfo.cs
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.csproj.CoreCompileInputs.cache
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.MvcApplicationPartsAssemblyInfo.cs
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.MvcApplicationPartsAssemblyInfo.cache
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\appsettings.Development.json
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\appsettings.json
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\VirtualCard.exe
@@ -119,6 +126,7 @@ C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\Sy
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Diagnostics.DiagnosticSource.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Drawing.Common.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.IdentityModel.Tokens.Jwt.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Net.Mail.Abstractions.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Runtime.Caching.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Security.Cryptography.ProtectedData.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\System.Security.Permissions.dll
@@ -135,13 +143,7 @@ C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\ru
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\runtimes\win\lib\netstandard2.0\System.Runtime.Caching.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\runtimes\win\lib\netstandard2.0\System.Security.Cryptography.ProtectedData.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\runtimes\win\lib\netcoreapp3.0\System.Windows.Extensions.dll
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.csproj.AssemblyReference.cache
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.AssemblyInfoInputs.cache
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.AssemblyInfo.cs
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.csproj.CoreCompileInputs.cache
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.MvcApplicationPartsAssemblyInfo.cs
-C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\VirtualCard.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Debug\net6.0\Proxy.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\staticwebassets\msbuild.VirtualCard.Microsoft.AspNetCore.StaticWebAssets.props
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\staticwebassets\msbuild.build.VirtualCard.props
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Debug\net6.0\staticwebassets\msbuild.buildMultiTargeting.VirtualCard.props
