@@ -77,3 +77,5 @@ C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\VirtualCard.pdb
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\VirtualCard.genruntimeconfig.cache
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\ref\VirtualCard.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Release\net6.0\System.Net.Mail.Abstractions.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\bin\Release\net6.0\Proxy.dll

@@ -20,17 +20,34 @@ namespace VirtualCard.Controllers
             _logger = logger;
             _visualCard = visualCard;
         }
-        [HttpPost("create-card")]
-        public async Task<IActionResult> CreateCard([FromBody] CreateCard request)
+        [HttpPost("create-card,suntrust-mobile")]
+        public async Task<IActionResult> CreateCard([FromBody] EncryptRequest encryptRequest)
         {
-            if (request == null)
+            if (encryptRequest == null)
             {
                 return BadRequest("Invalid request data.");
             }
 
             try
             {
-                var result = await _visualCard.CreateCardAsync(request);
+                var result = await _visualCard.CreateCardAsync(encryptRequest);
+                return Ok(new { Message = "Card created successfully", Data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }[HttpPost("create-card,suntrust-web")]
+        public async Task<IActionResult> Create2Card([FromBody] EncryptRequest encryptRequest)
+        {
+            if (encryptRequest == null)
+            {
+                return BadRequest("Invalid request data.");
+            }
+
+            try
+            {
+                var result = await _visualCard.CreateCard2Async(encryptRequest);
                 return Ok(new { Message = "Card created successfully", Data = result });
             }
             catch (Exception ex)
@@ -39,24 +56,24 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpPost("BlockCard")]
-        public async Task<IActionResult> BlockCard([FromBody] BlockCard req)
+        public async Task<IActionResult> BlockCard([FromBody] EncryptRequest encryptRequest)
         {
-            _logger.LogInformation("Received BlockCard request: {@Request}", req);
+            _logger.LogInformation("Received BlockCard request: {@Request}", encryptRequest);
 
-            if (req == null || string.IsNullOrEmpty(req.accountNumber))
+           /* if (encryptRequest == null || string.IsNullOrEmpty(req.accountNumber))
             {
                 _logger.LogWarning("BlockCard request failed: Invalid request data.");
                 return BadRequest("Invalid request data.");
-            }
+            }*/
 
             try
             {
-                var response = await _visualCard.BlockCardAsync(req);
+                var response = await _visualCard.BlockCardAsync(encryptRequest);
 
                 // Log the response
                 _logger.LogInformation("BlockCard response: {Response}", response);
 
-                return Ok(new { Message = "Card blocked successfully", Data = response });
+                return Ok(new { Message = "Card blocked successful", Data = response });
             }
             catch (Exception ex)
             {
@@ -65,30 +82,30 @@ namespace VirtualCard.Controllers
             }
         }
         
-        [HttpPost("FetchCard-ClientReference")]
-        public async Task<IActionResult> FetchCards([FromBody] FetchCardRequest request)
+        [HttpPost("FetchCard-ClientReference-pin")]
+        public async Task<IActionResult> FetchCards([FromBody] EncryptRequest encryptRequest)
         {
-            var response = await _visualCard.FetchCardExcludedAsync(request);
+            var response = await _visualCard.FetchCardExcludedAsync(encryptRequest);
             return Ok(response);
         }
-        [HttpPost("FetchCard-CardReference")]
-        public async Task<IActionResult> FetchCard([FromBody] FetchCardRequest1 req)
+        [HttpPost("FetchCard-CardReference-pin")]
+        public async Task<IActionResult> FetchCard([FromBody] EncryptRequest encryptRequest)
         {
-            var response = await _visualCard.FetchCardIncludedAsync(req);
-            return Ok(new { Message = "FetchCard-CardReference successfully", Data = response });
+            var response = await _visualCard.FetchCardIncludedAsync(encryptRequest);
+            return Ok(new { Message = "FetchCard-CardReference successful", Data = response });
         }
         [HttpPost("Fetch-by-creation-channel")]
-        public async Task<IActionResult> FetchCardsByCreationChannel([FromBody] FetchCardsByCreationChannelRequest request)
+        public async Task<IActionResult> FetchCardsByCreationChannel([FromBody] EncryptRequest encryptRequest)
         {
-            var response = await _visualCard.FetchCardsByCreationChannelAsync(request);
-            return Ok(new { Message = "FetchCardsByCreationChannel successfully", Data = response });
+            var response = await _visualCard.FetchCardsByCreationChannelAsync(encryptRequest);
+            return Ok(new { Message = "FetchCardsByCreationChannel successful", Data = response });
         }
         [HttpPost("Change-pin")]
-        public async Task<IActionResult> ChangeCardPin([FromBody] ChangePinRequest pinChangeRequest)
+        public async Task<IActionResult> ChangeCardPin([FromBody] EncryptRequest encryptRequest)
         {
-            _logger.LogInformation("Received ChangeCardPin request: {@Request}", pinChangeRequest);
+            _logger.LogInformation("Received ChangeCardPin request: {@Request}", encryptRequest);
 
-            if (pinChangeRequest == null)
+            if (encryptRequest == null)
             {
                 _logger.LogWarning("ChangeCardPin request failed: Invalid request data.");
                 return BadRequest("Invalid request data");
@@ -96,12 +113,12 @@ namespace VirtualCard.Controllers
 
             try
             {
-                var response = await _visualCard.ChangeCardPinAsync(pinChangeRequest);
+                var response = await _visualCard.ChangeCardPinAsync(encryptRequest);
 
                 // Log the response
                 _logger.LogInformation("ChangeCardPin response: {Response}", response);
 
-                return Ok(new { Message = " successfull", Data = response });
+                return Ok(new { Message = " successful", Data = response });
             }
             catch (Exception ex)
             {
@@ -110,11 +127,11 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpPost("Reset-pin")]
-        public async Task<IActionResult> ResetCardPin([FromBody] ResetPinRequest pinResetRequest)
+        public async Task<IActionResult> ResetCardPin([FromBody] EncryptRequest encryptRequest)
         {
-            _logger.LogInformation("Received ResetCardPin request: {@Request}", pinResetRequest);
+            _logger.LogInformation("Received ResetCardPin request: {@Request}", encryptRequest);
 
-            if (pinResetRequest == null)
+            if (encryptRequest == null)
             {
                 _logger.LogWarning("ResetCardPin request failed: Invalid request data.");
                 return BadRequest("Invalid request data");
@@ -122,12 +139,12 @@ namespace VirtualCard.Controllers
 
             try
             {
-                var response = await _visualCard.ResetCardPinAsync(pinResetRequest);
+                var response = await _visualCard.ResetCardPinAsync(encryptRequest);
 
                 // Log the successful response
                 _logger.LogInformation("ResetCardPin response: {Response}", response);
 
-                return Ok(new { Message = "Reset pin successfully", Data = response });
+                return Ok(new { Message = "Reset pin successful", Data = response });
             }
             catch (Exception ex)
             {
@@ -136,16 +153,16 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpPost("Transaction-statement")]
-        public async Task<IActionResult> GetStatement([FromBody] GetStatementRequest request)
+        public async Task<IActionResult> GetStatement([FromBody] EncryptRequest encryptRequest)
         {
-            if (request == null)
+            if (encryptRequest == null)
             {
                 return BadRequest("Invalid request data.");
             }
 
             try
             {
-                var result = await _visualCard.GetStatementAsync(request);
+                var result = await _visualCard.GetStatementAsync(encryptRequest);
                 return Ok(result);
             }
             catch (Exception ex)
@@ -154,17 +171,17 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpPost("Get-card-status")]
-        public async Task<IActionResult> GetCardStatus([FromBody] CardStatusRequest request)
+        public async Task<IActionResult> GetCardStatus([FromBody] EncryptRequest encryptRequest)
         {
-            if (request == null)
+            if (encryptRequest == null)
             {
                 return BadRequest("Invalid request data.");
             }
 
             try
             {
-                var result = await _visualCard.GetCardStatusAsync(request);
-                return Ok(new { Message = "Successfully", Data = result });
+                var result = await _visualCard.GetCardStatusAsync(encryptRequest);
+                return Ok(new { Message = "Successful", Data = result });
             }
             catch (Exception ex)
             {
@@ -172,11 +189,11 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpPost("Unblock-card")]
-        public async Task<IActionResult> UnblockCard([FromBody] UnBlockCard request)
+        public async Task<IActionResult> UnblockCard([FromBody] EncryptRequest encryptRequest)
         {
-            _logger.LogInformation("Received UnblockCard request: {@Request}", request);
+            _logger.LogInformation("Received UnblockCard request: {@Request}", encryptRequest);
 
-            if (request == null)
+            if (encryptRequest == null)
             {
                 _logger.LogWarning("UnblockCard request failed: Invalid request data.");
                 return BadRequest("Invalid request data.");
@@ -184,12 +201,12 @@ namespace VirtualCard.Controllers
 
             try
             {
-                var result = await _visualCard.UnblockCardAsync(request);
+                var result = await _visualCard.UnblockCardAsync(encryptRequest);
 
                 // Log the successful response
-                _logger.LogInformation("UnblockCard response: {successfull}", result);
+                _logger.LogInformation("UnblockCard response: {successful}", result);
 
-                return Ok(new { Message = "Card unblocked successfully", Data = result });
+                return Ok(new { Message = "Card unblocked successful", Data = result });
             }
             catch (Exception ex)
             {

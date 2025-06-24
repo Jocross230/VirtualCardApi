@@ -3,7 +3,9 @@ using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
 using VisualCard.Services;
+using VirtualCard.Help;
 using VirtualCard.Data;
+
 
 
 var builder = WebApplication.CreateBuilder(args);
@@ -54,6 +56,7 @@ builder.Services.AddCors(options =>
 // Register the other services
 builder.Services.AddScoped<IVirtualCard, VirtualCardServices>();
 builder.Services.AddScoped<ICryptoUtils, CryptoUtils>();
+builder.Services.AddScoped<IDataEncryption, DataEncryption>();
 builder.Services.AddSingleton<CryptoUtils>();
 
 var configurations = builder.Configuration;

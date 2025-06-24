@@ -86,9 +86,13 @@ namespace VirtualCard.TokenResponses
             }
 
             using var client = new HttpClient();
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://passport-v2.k8.isw.la/passport/oauth/token");
-
-            request.Headers.Add("Authorization", "Basic SUtJQTczQTIwNTE3ODg5NTAyMzA2OTE4MkZEMkE2QTFBQUIwMDREMDY5OTY6c2VjcmV0");
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://passport.interswitchng.com/passport/oauth/token");
+            /*var clientId = "IKIA4790B5F64C1D2D46CD82F6883503CB8B582968DF";
+            var clientSecret = "pbsDADiFkx3pXD1oG1g9o7M/y7xKj7vWpr4w0s7DFzA=";
+            var byteArray = System.Text.Encoding.ASCII.GetBytes($"{clientId}:{clientSecret}");
+            var base64 = Convert.ToBase64String(byteArray);
+            request.Headers.Add("Authorization", $"Basic {base64}");*/
+            request.Headers.Add("Authorization", "Basic SUtJQTQ3OTBCNUY2NEMxRDJENDZDRDgyRjY4ODM1MDNDQjhCNTgyOTY4REY6cGJzREFEaUZreDNwWEQxb0cxZzlvN00veTd4S2o3dldwcjR3MHM3REZ6QT0=");
             request.Headers.Add("Cookie", "SESSION=d7ba8f94-833a-4254-9158-8d71ca8ee334");
 
             var collection = new List<KeyValuePair<string, string>>

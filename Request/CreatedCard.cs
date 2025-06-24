@@ -1,5 +1,4 @@
-﻿using System.ComponentModel.DataAnnotations.Schema;
-using System.ComponentModel.DataAnnotations;
+﻿
 
 
 namespace VirtualCard.Request
@@ -29,5 +28,6 @@ namespace VirtualCard.Request
         public string responseMessage { get; set; }
         public string defaultPin { get; set; }
         public CreatedCard card { get; set; }
+       // public BlockCard cards { get; set; }
     }
 }

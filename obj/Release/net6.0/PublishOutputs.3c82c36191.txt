@@ -37,6 +37,7 @@ C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Diagnostics.DiagnosticSource.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Drawing.Common.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.IdentityModel.Tokens.Jwt.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Net.Mail.Abstractions.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Runtime.Caching.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Security.Cryptography.ProtectedData.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\System.Security.Permissions.dll
@@ -53,4 +54,5 @@ C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\runtimes\win\lib\netstandard2.0\System.Runtime.Caching.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\runtimes\win\lib\netstandard2.0\System.Security.Cryptography.ProtectedData.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\runtimes\win\lib\netcoreapp3.0\System.Windows.Extensions.dll
+C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\Proxy.dll
 C:\Users\Josiah.Onyeje\source\repos\VirtualCard\VirtuallCard\obj\Release\net6.0\PubTmp\Out\VirtualCard.deps.json

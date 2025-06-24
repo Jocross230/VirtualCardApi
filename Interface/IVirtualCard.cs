@@ -7,19 +7,20 @@ namespace VisualCard.Interface
     public interface IVirtualCard
     {
         
-        Task<string> BlockCardAsync(BlockCard BlockedCards);
-        Task<string> ChangeCardPinAsync(ChangePinRequest pinChangeRequest);
-        Task<string> ResetCardPinAsync(ResetPinRequest ResetPinRequests);
-        Task<string> GetCardStatusAsync(CardStatusRequest request);
+        Task<EncryptResponse> BlockCardAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> ChangeCardPinAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> ResetCardPinAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> GetCardStatusAsync(EncryptRequest encryptRequest);
         
         Task<CreatedCard> GetByAccountNumberAsync(string accountNumber);
 
-        Task<string> FetchCardExcludedAsync(FetchCardRequest req);
-        Task<string> FetchCardIncludedAsync(FetchCardRequest1 req);
-        Task<string> FetchCardsByCreationChannelAsync(FetchCardsByCreationChannelRequest request);
-        Task<string> GetStatementAsync(GetStatementRequest request);
-        Task<string> UnblockCardAsync(UnBlockCard UnBlockedCards);
-        Task<string> CreateCardAsync(CreateCard CreateCards);
+        Task<EncryptResponse> FetchCardExcludedAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> FetchCardIncludedAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> FetchCardsByCreationChannelAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> GetStatementAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> UnblockCardAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest);
         
        
         Task<string> TransactionDisputeAsync(TransectionDispute dis);

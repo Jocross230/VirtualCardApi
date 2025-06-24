@@ -6,4 +6,8 @@
         public string accountNumber { get; set; }
         public string cardReference { get; set; }
     }
+    public class roots 
+    {
+        public BlockCard block { get; set; }
+    }
 }
