@@ -1,17 +1,16 @@
-﻿using Newtonsoft.Json;
+﻿using Microsoft.EntityFrameworkCore;
+using Newtonsoft.Json;
 using RestSharp;
 using System.Net.Http.Headers;
 using System.Text;
+using VirtualCard.Data;
+using VirtualCard.Help;
+using VirtualCard.Request;
 using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
 using VisualCard.Model;
-using VirtualCard.Help;
-using VirtualCard.Request;
 using RestClientOptions = RestSharp.RestClientOptions;
-using Microsoft.EntityFrameworkCore;
-using VirtualCard.Data;
-using Org.BouncyCastle.Ocsp;
 /*using static SunTrustProxy;
 using Org.BouncyCastle.Asn1.Ocsp;
 using Newtonsoft.Json.Linq;
@@ -21,7 +20,7 @@ namespace VisualCard.Services
 {
     public class VirtualCardServices : IVirtualCard
     {
-        
+
 
 
         public readonly HttpClient _httpClient;
@@ -34,17 +33,17 @@ namespace VisualCard.Services
         private readonly RestClient _client;
         private readonly IDataEncryption _dataEncryption;
 
-        public VirtualCardServices(VirtualCardDbContext context,ILogger<VirtualCardServices> logger, GenerateTokens generateToken,IDataEncryption dataEncryption, 
+        public VirtualCardServices(VirtualCardDbContext context, ILogger<VirtualCardServices> logger, GenerateTokens generateToken, IDataEncryption dataEncryption,
             IConfiguration configuration, HttpClient httpClient, ICryptoUtils cryptoUtils)
         {
-            _context=context;
+            _context = context;
             _logger = logger;
             _configuration = configuration;
             _httpClient = httpClient;
             _cryptoUtils = cryptoUtils;
             _generateToken = generateToken;
-            _dataEncryption= dataEncryption;
-            
+            _dataEncryption = dataEncryption;
+
             var options = new RestClientOptions(_configuration.GetValue<string>("BaseUrl"))
             {
                 MaxTimeout = -1
@@ -58,7 +57,7 @@ namespace VisualCard.Services
             var sdata = string.Empty;
             try
             {
-               // string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
+                // string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<BlockCard>(decrypt);
                 /*if (decrypted?.cards == null)
@@ -108,8 +107,8 @@ namespace VisualCard.Services
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
-               // return decryptedData;
-                
+                // return decryptedData;
+
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
@@ -207,7 +206,7 @@ namespace VisualCard.Services
 
         }
 
-       
+
         public async Task<EncryptResponse> ResetCardPinAsync(EncryptRequest encryptRequest)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
@@ -221,8 +220,8 @@ namespace VisualCard.Services
                 {
                     accountNumber = decrypted.accountNumber,
                     cardReference = decrypted.cardReference,
-                    
-                    
+
+
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -295,18 +294,18 @@ namespace VisualCard.Services
             try
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-               /* if (decrypt == "99")
-                {
-                    var resp = new
-                    {
-                        statuscode = "96",
-                        statusmessage = "System Malfunction"
-                    };
-                    sdata = JsonConvert.SerializeObject(resp);
-                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                /* if (decrypt == "99")
+                 {
+                     var resp = new
+                     {
+                         statuscode = "96",
+                         statusmessage = "System Malfunction"
+                     };
+                     sdata = JsonConvert.SerializeObject(resp);
+                     encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
 
-                    return encryptResponse;
-                }*/
+                     return encryptResponse;
+                 }*/
 
                 var newRequest = new
                 {
@@ -359,7 +358,7 @@ namespace VisualCard.Services
 
                 return encryptResponse;
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 var resp = new
                 {
@@ -374,9 +373,9 @@ namespace VisualCard.Services
 
             return null;
 
-         }  
+        }
 
-        public async Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest) 
+        public async Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
             var sdata = string.Empty;
@@ -389,27 +388,47 @@ namespace VisualCard.Services
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
 
+                _logger.LogInformation("Validating account ownership for userId {UserId}", decrypted.userId);
+
+                var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
+
+                if (ownershipValidationResult == null || ownershipValidationResult?.responseCode != ResponseCode.SUCCESSFUL)
+                {
+                    _logger.LogWarning("Ownership validation failed for userId {UserId}", decrypted.userId);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
+                    return encryptResponse;
+                }
+               /* var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
+                *//*if (!ownershipValidationResult..ToLower().Contains(decrypted.firstName.ToLower()) ||
+    !ownershipValidationResult.AccountName.ToLower().Contains(decrypted.lastName.ToLower()))*//*
+                if (ownershipValidationResult == null || ownershipValidationResult.responseCode != ResponseCode.SUCCESSFUL)
+
+                {
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
+                    return encryptResponse;
+                }*/
+
                 var newRequest = new CreateCard
                 {
                     lastName = decrypted.lastName,
-                    city= decrypted.city,
-                    accountType=decrypted.accountType,
-                    postalCode= decrypted.postalCode,
-                    streetAddressLine2= decrypted.streetAddressLine2,
-                    userId= decrypted.userId,
-                    mobileNr= decrypted.mobileNr,
-                    cardProgram= decrypted.cardProgram,
-                    firstName= decrypted.firstName,
-                    accountId= decrypted.accountId,
-                    emailAddress= decrypted.emailAddress,
-                    nameOnCard= decrypted.nameOnCard,
+                    city = decrypted.city,
+                    accountType = decrypted.accountType,
+                    postalCode = decrypted.postalCode,
+                    streetAddressLine2 = decrypted.streetAddressLine2,
+                    userId = decrypted.userId,
+                    mobileNr = decrypted.mobileNr,
+                    cardProgram = decrypted.cardProgram,
+                    firstName = decrypted.firstName,
+                    accountId = decrypted.accountId,
+                    emailAddress = decrypted.emailAddress,
+                    nameOnCard = decrypted.nameOnCard,
                     streetAddress = decrypted.streetAddress,
-                    countryCode= decrypted.countryCode,
-                    issuerNr= decrypted.issuerNr,
-                    state= decrypted.state,
-                    currencyCode= decrypted.currencyCode,
-                    alias= decrypted.alias,
-                    clientReference=clientReference,
+                    countryCode = decrypted.countryCode,
+                    issuerNr = decrypted.issuerNr,
+                    state = decrypted.state,
+                    currencyCode = decrypted.currencyCode,
+                    alias = decrypted.alias,
+                    clientReference = clientReference,
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -430,7 +449,9 @@ namespace VisualCard.Services
                 var tokenResponse = await _generateToken.GetToken2();
 
                 // Create the HTTP client and request
-                var client = new RestClient("https://virtualcard.interswitchng.com");
+                var baseUrl = _configuration["AppSettings:BaseUrl"];
+                var client = new RestClient(baseUrl);
+               //
                 var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
@@ -479,10 +500,10 @@ namespace VisualCard.Services
                 return encryptResponse;
                 //return decryptedData;
             }
-           /* catch (Exception ex)
-            {
-                throw new Exception($"Virtual Card Creation Failed: {ex.Message}");
-            }*/
+            /* catch (Exception ex)
+             {
+                 throw new Exception($"Virtual Card Creation Failed: {ex.Message}");
+             }*/
             catch (Exception ex)
             {
                 var resp = new
@@ -510,6 +531,21 @@ namespace VisualCard.Services
 
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
+
+                // ✅ Step: Validate account ownership
+
+
+                _logger.LogInformation("Validating account ownership for userId {UserId}", decrypted.userId);
+
+                var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
+
+                if (ownershipValidationResult == null || ownershipValidationResult?.responseCode != ResponseCode.SUCCESSFUL)
+                {
+                    _logger.LogWarning("Ownership validation failed for userId {UserId}", decrypted.userId);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
+                    return encryptResponse;
+                }
+
 
                 var newRequest = new CreateCard
                 {
@@ -552,7 +588,9 @@ namespace VisualCard.Services
                 var tokenResponse = await _generateToken.GetToken2();
 
                 // Create the HTTP client and request
-                var client = new RestClient("https://virtualcard.interswitchng.com");
+                var baseUrl = _configuration["AppSettings:BaseUrl"];
+                var client = new RestClient(baseUrl);
+                //var client = new RestClient("");
                 var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
@@ -641,7 +679,7 @@ namespace VisualCard.Services
             string maskedSection = new string('*', maskLength);
             return pan.Substring(0, 6) + maskedSection + pan.Substring(pan.Length - 4);
         }
-        
+
         public async Task<EncryptResponse> FetchCardsByCreationChannelAsync(EncryptRequest encryptRequest)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
@@ -724,7 +762,7 @@ namespace VisualCard.Services
                 var newRequest = new FetchCardRefandPin
                 {
                     clientReference = decrypted.clientReference,
-                    pin= decrypted.pin,
+                    pin = decrypted.pin,
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -789,7 +827,7 @@ namespace VisualCard.Services
         }
 
 
-        
+
         public async Task<EncryptResponse> FetchCardIncludedAsync(EncryptRequest encryptRequest)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
@@ -798,12 +836,12 @@ namespace VisualCard.Services
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<FetchCardRequest1>(decrypt);
-               
+
                 var newRequest = new FetchCardRequest1
                 {
                     cardReference = decrypted.cardReference,
                     pin = decrypted.pin,
-                    
+
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -864,8 +902,8 @@ namespace VisualCard.Services
             }
         }
 
-        
-        
+
+
         public async Task<EncryptResponse> GetStatementAsync(EncryptRequest encryptRequest)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
@@ -879,12 +917,12 @@ namespace VisualCard.Services
                 {
 
                     cardReference = decrypted.cardReference,
-                    fromDate= decrypted.fromDate,
-                    toDate= decrypted.toDate,
-                    tranCount= decrypted.tranCount,
-                    reference= decrypted.reference,
+                    fromDate = decrypted.fromDate,
+                    toDate = decrypted.toDate,
+                    tranCount = decrypted.tranCount,
+                    reference = decrypted.reference,
                     forward = decrypted.forward,
-                    ordering= decrypted.ordering,
+                    ordering = decrypted.ordering,
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -957,8 +995,8 @@ namespace VisualCard.Services
                 {
                     accountNumber = decrypted.accountNumber,
                     cardReference = decrypted.cardReference,
-                    
-                    
+
+
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
@@ -996,7 +1034,7 @@ namespace VisualCard.Services
 
                 var jsonresponse = await response.Content.ReadAsStringAsync();
                 string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-               
+
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptdata);
 
                 return encryptResponse;
@@ -1016,19 +1054,19 @@ namespace VisualCard.Services
             }
         }
 
-        public async Task<CreatedCard> GetByAccountNumberAsync(string accountNumber)
+        public async Task<CreatedCard> GetByUserIdAsync(string UserId)
         {
             var result = await _context.CreatedCards.FirstOrDefaultAsync();
             if (result != null)
             {
-                var staff = await _context.CreatedCards.FirstOrDefaultAsync(s => s.accountNumber ==accountNumber);
+                var staff = await _context.CreatedCards.FirstOrDefaultAsync(s => s.userId == UserId);
 
             }
             return result;
         }
-       
-       public async Task<string>TransactionDisputeAsync(TransectionDispute dis) 
-       {
+
+        public async Task<string> TransactionDisputeAsync(TransectionDispute dis)
+        {
             string To = "jocrossonyejo@gmail.com";//"esupport@suntrustng.com, cashandchannelsmgt@suntrustng.com";
             var response = SunTrustProxy.SendEmail(
                     dis.Subject,
@@ -1045,21 +1083,21 @@ namespace VisualCard.Services
             if (emailResponse?.ResponseCode == "00")
             {
                 // Save the dispute to the database
-                
-                
-                    _context.VirtualCardTransactionDisputes.Add(dis); // Use context instead of _context
-                    await _context.SaveChangesAsync();
-                
+
+
+                _context.VirtualCardTransactionDisputes.Add(dis); // Use context instead of _context
+                await _context.SaveChangesAsync();
+
 
                 return "Dispute sent Successfully ";
             }
 
             return "Email sending failed!";
-            
-        }
-        
 
-        
+        }
+
+
+
     }
 }
 
