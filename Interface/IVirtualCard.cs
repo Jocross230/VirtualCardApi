@@ -12,7 +12,7 @@ namespace VisualCard.Interface
         Task<EncryptResponse> ResetCardPinAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> GetCardStatusAsync(EncryptRequest encryptRequest);
         
-        Task<CreatedCard> GetByAccountNumberAsync(string accountNumber);
+        Task<CreatedCard> GetByUserIdAsync(string UserId);
 
         Task<EncryptResponse> FetchCardExcludedAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> FetchCardIncludedAsync(EncryptRequest encryptRequest);

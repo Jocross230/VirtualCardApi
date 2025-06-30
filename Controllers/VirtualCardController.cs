@@ -215,12 +215,12 @@ namespace VirtualCard.Controllers
             }
         }
         [HttpGet("AccountId")]
-        public async Task<IActionResult> FindByIdAsync( string accountNumber)
+        public async Task<IActionResult> FindByIdAsync( string UserId)
         {
             try
             {
                 
-                var result = await _visualCard.GetByAccountNumberAsync(accountNumber);
+                var result = await _visualCard.GetByUserIdAsync(UserId);
 
                 // If result is found, return the result
                 if (result != null)
@@ -229,12 +229,12 @@ namespace VirtualCard.Controllers
                 }
 
                 // If result is not found, return a 404 not found response
-                return NotFound($"No attestation record found for accountNumber: {accountNumber}");
+                return NotFound($"No attestation record found for UserId: {UserId}");
             }
             catch (Exception ex)
             {
                 // Log the exception (if logging is configured)
-                _logger.LogError($"An error occurred : {accountNumber}. Error: {ex.Message}");
+                _logger.LogError($"An error occurred : {UserId}. Error: {ex.Message}");
 
                 // Return a 500 server error response
                 return StatusCode(500, $"An error occurred: {ex.Message}");
