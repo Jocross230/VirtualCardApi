@@ -26,7 +26,7 @@ namespace VisualCard.Services
         public readonly HttpClient _httpClient;
         public readonly ILogger<VirtualCardServices> _logger;
         public readonly VirtualCardDbContext _context;
-
+        public readonly UserProfileDbContext _contxt;
         private readonly IConfiguration _configuration;
         private readonly ICryptoUtils _cryptoUtils;
         private readonly GenerateTokens _generateToken;
@@ -34,7 +34,7 @@ namespace VisualCard.Services
         private readonly IDataEncryption _dataEncryption;
 
         public VirtualCardServices(VirtualCardDbContext context, ILogger<VirtualCardServices> logger, GenerateTokens generateToken, IDataEncryption dataEncryption,
-            IConfiguration configuration, HttpClient httpClient, ICryptoUtils cryptoUtils)
+            IConfiguration configuration, HttpClient httpClient, ICryptoUtils cryptoUtils, UserProfileDbContext contxt)
         {
             _context = context;
             _logger = logger;
@@ -49,6 +49,7 @@ namespace VisualCard.Services
                 MaxTimeout = -1
             };
             _client = new RestClient(options);
+            _contxt = contxt;
         }
 
         public async Task<EncryptResponse> BlockCardAsync(EncryptRequest encryptRequest)
@@ -519,34 +520,34 @@ namespace VisualCard.Services
 
 
         }
-        public async Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest)
+        public async Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest, string Channel)
         {
             EncryptResponse encryptResponse = new EncryptResponse();
             var sdata = string.Empty;
+
             try
             {
-                // Generate a unique client reference
-                var clientReference = Guid.NewGuid().ToString();
-                encryptRequest.GetType().GetProperty("clientReference")?.SetValue(encryptRequest, clientReference);
-
+                // Decrypt the incoming request
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
 
-                // ✅ Step: Validate account ownership
+                // ✅ Generate a unique client reference and assign it
+                var clientReference = Guid.NewGuid().ToString();
+                decrypted.clientReference = clientReference;
 
-
+                // ✅ Validate account ownership
                 _logger.LogInformation("Validating account ownership for userId {UserId}", decrypted.userId);
 
                 var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
 
-                if (ownershipValidationResult == null || ownershipValidationResult?.responseCode != ResponseCode.SUCCESSFUL)
+                if (ownershipValidationResult == null || ownershipValidationResult.responseCode != ResponseCode.SUCCESSFUL)
                 {
                     _logger.LogWarning("Ownership validation failed for userId {UserId}", decrypted.userId);
                     encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
                     return encryptResponse;
                 }
 
-
+                // ✅ Build the request object with updated clientReference
                 var newRequest = new CreateCard
                 {
                     lastName = decrypted.lastName,
@@ -567,39 +568,29 @@ namespace VisualCard.Services
                     state = decrypted.state,
                     currencyCode = decrypted.currencyCode,
                     alias = decrypted.alias,
-                    clientReference = clientReference,
+                    clientReference = decrypted.clientReference,
                 };
 
-                var deserialize = JsonConvert.SerializeObject(newRequest);
+                var jsonToEncrypt = JsonConvert.SerializeObject(newRequest);
 
-                // Serialize the request
-                /*var json = JsonConvert.SerializeObject(CreateCards);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-                // Encrypt the request data
-                string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:denc_key"]);
-                //string decryptedData = _cryptoUtils.DecryptData(encryptedData, _configuration["AppSettings:denc_key"]);
+                // ✅ Encrypt the new request payload
+                string encryptedData = _cryptoUtils.EncryptData(jsonToEncrypt, _configuration["AppSettings:denc_key"]);
 
-                // Validate Base64 format
-                /*if (!IsBase64String(encryptedData))
-                    throw new Exception("Encryption error: Encrypted data is not a valid Base64 string.");*/
-
-                // Get a fresh access token
+                // ✅ Get a fresh access token
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // Create the HTTP client and request
+                // ✅ Prepare the HTTP request
                 var baseUrl = _configuration["AppSettings:BaseUrl"];
                 var client = new RestClient(baseUrl);
-                //var client = new RestClient("");
                 var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
                     .AddHeader("Authorization", $"Bearer {tokenResponse.AccessToken.Trim()}")
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
-                    .AddBody(encryptedData);  // Ensure proper formatting
+                    .AddBody(encryptedData);
 
-                // Send the request
+                // ✅ Send the request
                 RestResponse response = await client.ExecuteAsync(request);
 
                 if (!response.IsSuccessful)
@@ -608,9 +599,10 @@ namespace VisualCard.Services
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // Decrypt the response data
+                // ✅ Decrypt the response and store the card
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
                 var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
+
                 var decryptedCardData = new CreatedCard
                 {
                     alias = decryptedCardResponse.card.alias,
@@ -626,23 +618,19 @@ namespace VisualCard.Services
                     defaultAccountType = decryptedCardResponse.card.defaultAccountType,
                     blocked = decryptedCardResponse.card.blocked,
                     failedPinAttempts = decryptedCardResponse.card.failedPinAttempts,
-                    creationChannel = decryptedCardResponse.card.creationChannel,
-
+                    creationChannel = Channel,
                 };
-                // Add to DbContext and save
+
                 await _context.CreatedCards.AddAsync(decryptedCardData);
                 await _context.SaveChangesAsync();
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
+                // ✅ Return encrypted response
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
                 return encryptResponse;
-                //return decryptedData;
             }
-            /*catch (Exception ex)
-            {
-                throw new Exception($"Virtual Card Creation Failed: {ex.Message}");
-            }*/
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Card creation failed.");
                 var resp = new
                 {
                     statuscode = "96",
@@ -1056,18 +1044,14 @@ namespace VisualCard.Services
 
         public async Task<CreatedCard> GetByUserIdAsync(string UserId)
         {
-            var result = await _context.CreatedCards.FirstOrDefaultAsync();
-            if (result != null)
-            {
-                var staff = await _context.CreatedCards.FirstOrDefaultAsync(s => s.userId == UserId);
-
-            }
+            var result = await _context.CreatedCards.FirstOrDefaultAsync(s => s.userId == UserId);
+           
             return result;
         }
 
         public async Task<string> TransactionDisputeAsync(TransectionDispute dis)
         {
-            string To = "jocrossonyejo@gmail.com";//"esupport@suntrustng.com, cashandchannelsmgt@suntrustng.com";
+            string To = "esupport@suntrustng.com, cashandchannelsmgt@suntrustng.com";
             var response = SunTrustProxy.SendEmail(
                     dis.Subject,
                     "notifications@suntrustng.com",
@@ -1094,6 +1078,41 @@ namespace VisualCard.Services
 
             return "Email sending failed!";
 
+        }
+        public async Task<CreatedCard> GetCardDetailsByProfileIdAsync(string profileId)
+        {
+            _logger.LogInformation("Fetching card details using profile ID: {ProfileId}", profileId);
+
+            try
+            {
+                var userProfile = await _contxt.UserProfiles
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(u => u.id == profileId);
+
+                if (userProfile == null)
+                {
+                    _logger.LogWarning("No user profile found for ID: {ProfileId}", profileId);
+                    return null;
+                }
+
+                string cusNum = userProfile.cus_num;
+
+                var createdCard = await _context.CreatedCards
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(c => c.userId == cusNum);
+
+                if (createdCard == null)
+                {
+                    _logger.LogWarning("No created card found for cus_num: {CusNum}", cusNum);
+                }
+
+                return createdCard;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "An error occurred while fetching card details for profile ID: {ProfileId}", profileId);
+                throw;
+            }
         }
 
 

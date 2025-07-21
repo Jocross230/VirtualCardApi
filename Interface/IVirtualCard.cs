@@ -1,6 +1,7 @@
 ﻿
 using VirtualCard.Request;
 using VisualCard.Model;
+using VirtualCard.Model;
 
 namespace VisualCard.Interface
 {
@@ -19,10 +20,10 @@ namespace VisualCard.Interface
         Task<EncryptResponse> FetchCardsByCreationChannelAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> GetStatementAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> UnblockCardAsync(EncryptRequest encryptRequest);
-        Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest);
+        Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest, string channel);
         Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest);
-        
-       
+
+        Task<CreatedCard> GetCardDetailsByProfileIdAsync(string profileId);
         Task<string> TransactionDisputeAsync(TransectionDispute dis);
         
     }

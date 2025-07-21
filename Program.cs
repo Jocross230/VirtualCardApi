@@ -3,10 +3,10 @@ using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
 using VisualCard.Services;
+using VirtualCard.Services;
 using VirtualCard.Help;
 using VirtualCard.Data;
-
-
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +27,10 @@ builder.Services.AddSwaggerGen();
 var connection = builder.Configuration.GetConnectionString("TestDb");
 builder.Services.AddDbContext<VirtualCardDbContext>(options =>
     options.UseSqlServer(connection));
+
+var connect = builder.Configuration.GetConnectionString("UserDetails");
+builder.Services.AddDbContext<UserProfileDbContext>(options =>
+    options.UseSqlServer(connect));
 
 // Read configuration first
 var configuration = new ConfigurationBuilder()
@@ -77,9 +81,17 @@ builder.Services.AddHttpClient("GenerateTokens", client =>
 {
     client.BaseAddress = new Uri("https://passport-v2.k8.isw.la/passport/");
 });
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Your API", Version = "v1" });
+
+    // Enable enum as string in Swagger UI
+    c.SchemaFilter<VirtualCard.Services.EnumSchemaFilter>();
+});
 
 
 var app = builder.Build();
+/*app.UseMiddleware<BasicAuthMiddleware>();*/
 
 // Configure the HTTP request pipeline for Swagger
 if (app.Environment.IsDevelopment())

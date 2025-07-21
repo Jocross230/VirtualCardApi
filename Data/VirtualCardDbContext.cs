@@ -16,5 +16,12 @@ namespace VirtualCard.Data
         public DbSet<ChangePinResponse> ChangePinRequests { get; set; }
         public DbSet<ResetPinResponse> ResetPinResponses { get; set; }
         public DbSet<TransectionDispute> VirtualCardTransactionDisputes { get; set; }
+        
+        /*protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            modelBuilder.Entity<CreatedCard>().ToTable("CreatedCard"); // adjust if named differently
+        }*/
+
+        
     }
 }

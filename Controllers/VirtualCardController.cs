@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using VisualCard.Interface;
 using VisualCard.Model;
+using VirtualCard.Model;
 using VirtualCard.Request;
 
 
@@ -20,8 +21,8 @@ namespace VirtualCard.Controllers
             _logger = logger;
             _visualCard = visualCard;
         }
-        [HttpPost("create-card,suntrust-mobile")]
-        public async Task<IActionResult> CreateCard([FromBody] EncryptRequest encryptRequest)
+        [HttpPost("create-card")]
+        public async Task<IActionResult> CreateCard([FromBody] EncryptRequest encryptRequest, [FromQuery] CreateCardChannel channel)
         {
             if (encryptRequest == null)
             {
@@ -30,14 +31,20 @@ namespace VirtualCard.Controllers
 
             try
             {
-                var result = await _visualCard.CreateCardAsync(encryptRequest);
+                if (!Enum.IsDefined(typeof(CreateCardChannel), channel))
+                    return BadRequest(new { message = "Invalid or missing transaction channel." });
+                
+                var channelName = channel.ToString().Replace('_', '-');
+
+                var result = await _visualCard.CreateCardAsync(encryptRequest, channelName);
                 return Ok(new { Message = "Card created successfully", Data = result });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-        }[HttpPost("create-card,suntrust-web")]
+        }
+        /*[HttpPost("create-card,suntrust-web")]
         public async Task<IActionResult> Create2Card([FromBody] EncryptRequest encryptRequest)
         {
             if (encryptRequest == null)
@@ -54,7 +61,7 @@ namespace VirtualCard.Controllers
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-        }
+        }*/
         [HttpPost("BlockCard")]
         public async Task<IActionResult> BlockCard([FromBody] EncryptRequest encryptRequest)
         {
@@ -214,7 +221,7 @@ namespace VirtualCard.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        [HttpGet("AccountId")]
+        [HttpGet("Cus-Num")]
         public async Task<IActionResult> FindByIdAsync( string UserId)
         {
             try
@@ -229,7 +236,7 @@ namespace VirtualCard.Controllers
                 }
 
                 // If result is not found, return a 404 not found response
-                return NotFound($"No attestation record found for UserId: {UserId}");
+                return NotFound($"No record found : {UserId}");
             }
             catch (Exception ex)
             {
@@ -257,6 +264,16 @@ namespace VirtualCard.Controllers
             }
 
             return Ok(new { Response = result });
+        }
+        [HttpGet("profileId")]
+        public async Task<IActionResult> GetCustomerCardByProfileId(string profileId)
+        {
+            var card = await _visualCard.GetCardDetailsByProfileIdAsync(profileId);
+
+            if (card == null)
+                return NotFound("Customer or card not found");
+
+            return Ok(card);
         }
     }
     
