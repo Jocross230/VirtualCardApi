@@ -44,8 +44,8 @@ namespace VirtualCard.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        /*[HttpPost("create-card,suntrust-web")]
-        public async Task<IActionResult> Create2Card([FromBody] EncryptRequest encryptRequest)
+        [HttpPost("create-card2")]
+        public async Task<IActionResult> Create2Card([FromBody] EncryptRequest encryptRequest, [FromQuery] CreateCardChannel channel)
         {
             if (encryptRequest == null)
             {
@@ -54,14 +54,18 @@ namespace VirtualCard.Controllers
 
             try
             {
-                var result = await _visualCard.CreateCard2Async(encryptRequest);
+                if (!Enum.IsDefined(typeof(CreateCardChannel), channel))
+                    return BadRequest(new { message = "Invalid or missing transaction channel." });
+
+                var channelName = channel.ToString().Replace('_', '-');
+                var result = await _visualCard.CreateCard2Async(encryptRequest,channelName);
                 return Ok(new { Message = "Card created successfully", Data = result });
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
-        }*/
+        }
         [HttpPost("BlockCard")]
         public async Task<IActionResult> BlockCard([FromBody] EncryptRequest encryptRequest)
         {
@@ -248,7 +252,7 @@ namespace VirtualCard.Controllers
             }
         }
         
-        [HttpPost("send-dispute")]
+       /* [HttpPost("send-dispute")]
         public async Task<IActionResult> SendDispute([FromBody] TransectionDispute dispute)
         {
             if (dispute == null)
@@ -264,9 +268,9 @@ namespace VirtualCard.Controllers
             }
 
             return Ok(new { Response = result });
-        }
+        }*/
         [HttpGet("profileId")]
-        public async Task<IActionResult> GetCustomerCardByProfileId(string profileId)
+        public async Task<IActionResult> GetCustomerCardByProfileId(Guid profileId)
         {
             var card = await _visualCard.GetCardDetailsByProfileIdAsync(profileId);
 

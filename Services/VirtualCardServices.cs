@@ -501,10 +501,7 @@ namespace VisualCard.Services
                 return encryptResponse;
                 //return decryptedData;
             }
-            /* catch (Exception ex)
-             {
-                 throw new Exception($"Virtual Card Creation Failed: {ex.Message}");
-             }*/
+            
             catch (Exception ex)
             {
                 var resp = new
@@ -645,6 +642,135 @@ namespace VisualCard.Services
 
 
 
+        }
+        public async Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest, string Channel)
+        {
+            var encryptResponse = new EncryptResponse();
+            string sdata = string.Empty;
+
+            try
+            {
+                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
+                var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
+
+                // ✅ Generate a unique client reference and assign it
+                var clientReference = Guid.NewGuid().ToString();
+                decrypted.clientReference = clientReference;
+                // 🔓 Decrypt the incoming payload (expected to be just the account number)
+               // var decryptedAccountId = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
+
+                _logger.LogInformation("Decrypted accountId: {AccountId}", decrypted.accountId);
+
+                // 🔍 Fetch customer details using account number
+                var accountInfo = SunTrustProxy.getAccountBynumber(decrypted.accountId);
+
+                if (accountInfo == null || accountInfo.responseCode != "00" || accountInfo.Items == null || !accountInfo.Items.Any())
+                {
+                    _logger.LogWarning("Account not found or invalid for accountId: {AccountId}", decrypted.accountId);
+
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account not found. Card creation denied.");
+                    return encryptResponse;
+                }
+
+                var customer = accountInfo.Items[0];
+
+                // ✅ Build the CreateCard request from fetched data
+                var newRequest = new CreateCard
+                {
+                    accountId = decrypted.accountId,
+                    firstName = decrypted.firstName,
+                    lastName = decrypted.lastName,
+                    nameOnCard = $"{decrypted.firstName} {decrypted.lastName}",
+                    userId = decrypted.userId, // Assuming CUS_NUM is the user ID
+                    mobileNr = decrypted.mobileNr,
+                    emailAddress = decrypted.emailAddress,
+                    city = decrypted.city,
+                    postalCode = decrypted.postalCode,
+                    streetAddress = decrypted.streetAddress,
+                    streetAddressLine2 = decrypted.streetAddressLine2,
+                    state = decrypted.state,
+                    countryCode = decrypted.countryCode,
+                    accountType = decrypted.accountType,
+                    currencyCode = decrypted.currencyCode,
+                    alias = decrypted.alias,
+                    clientReference = decrypted.clientReference,
+
+                    // Constants
+                    cardProgram = "SUNTRUST VIRTUAL VER",
+                    issuerNr = "81"
+                };
+
+                var jsonToEncrypt = JsonConvert.SerializeObject(newRequest);
+
+                // 🔐 Encrypt payload for downstream request
+                string encryptedData = _cryptoUtils.EncryptData(jsonToEncrypt, _configuration["AppSettings:denc_key"]);
+
+                // 🔑 Get access token
+                var tokenResponse = await _generateToken.GetToken2();
+
+                var baseUrl = _configuration["AppSettings:BaseUrl"];
+                var client = new RestClient(baseUrl);
+                var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
+                    .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
+                    .AddHeader("Content-Type", "application/json")
+                    .AddHeader("Accept", "application/json")
+                    .AddHeader("Authorization", $"Bearer {tokenResponse.AccessToken.Trim()}")
+                    .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
+                    .AddBody(encryptedData);
+
+                var response = await client.ExecuteAsync(request);
+
+                if (!response.IsSuccessful)
+                {
+                    string errorMessage = response.Content ?? "Unknown error occurred.";
+                    throw new Exception($"Card creation failed: {response.StatusCode}, {errorMessage}");
+                }
+
+                // 🔓 Decrypt and save card response
+                string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
+                var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
+
+                var card = decryptedCardResponse.card;
+
+                var savedCard = new CreatedCard
+                {
+                    alias = card.alias,
+                    clientReference = card.clientReference,
+                    cardReference = card.cardReference,
+                    accountNumber = card.accountNumber,
+                    pan = MaskPan(card.pan),
+                    seqNr = card.seqNr,
+                    issuerNr = card.issuerNr,
+                    userId = card.userId,
+                    pinOffset = card.pinOffset,
+                    customerId = card.customerId,
+                    defaultAccountType = card.defaultAccountType,
+                    blocked = card.blocked,
+                    failedPinAttempts = card.failedPinAttempts,
+                    creationChannel = Channel
+                };
+
+                await _context.CreatedCards.AddAsync(savedCard);
+                await _context.SaveChangesAsync();
+
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
+                return encryptResponse;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Exception during card creation.");
+
+                var fallbackResponse = new
+                {
+                    statuscode = "96",
+                    statusmessage = "System Malfunction, please try again."
+                };
+
+                sdata = JsonConvert.SerializeObject(fallbackResponse);
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+
+                return encryptResponse;
+            }
         }
         private bool IsBase64String(string base64)
         {
@@ -1079,7 +1205,7 @@ namespace VisualCard.Services
             return "Email sending failed!";
 
         }
-        public async Task<CreatedCard> GetCardDetailsByProfileIdAsync(string profileId)
+        public async Task<CreatedCard> GetCardDetailsByProfileIdAsync(Guid profileId)
         {
             _logger.LogInformation("Fetching card details using profile ID: {ProfileId}", profileId);
 
@@ -1094,8 +1220,9 @@ namespace VisualCard.Services
                     _logger.LogWarning("No user profile found for ID: {ProfileId}", profileId);
                     return null;
                 }
+                _logger.LogInformation("cus_num type: {Type}", userProfile.cus_num.GetType().Name);
 
-                string cusNum = userProfile.cus_num;
+                string cusNum = userProfile.cus_num.ToString();
 
                 var createdCard = await _context.CreatedCards
                     .AsNoTracking()

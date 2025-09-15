@@ -21,9 +21,10 @@ namespace VisualCard.Interface
         Task<EncryptResponse> GetStatementAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> UnblockCardAsync(EncryptRequest encryptRequest);
         Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest, string channel);
-        Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest);
-
-        Task<CreatedCard> GetCardDetailsByProfileIdAsync(string profileId);
+        //Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest);
+        //Task<EncryptResponse> CreateCardsAsync(EncryptRequest encryptRequest, string Channel)
+        Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest, string Channel);
+        Task<CreatedCard> GetCardDetailsByProfileIdAsync(Guid profileId);
         Task<string> TransactionDisputeAsync(TransectionDispute dis);
         
     }

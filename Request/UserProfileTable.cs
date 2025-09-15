@@ -2,8 +2,8 @@
 {
     public class UserProfileTable
     {
-        public string? id { get; set; }
-        public string cus_num { get; set; } = string.Empty;
+        public Guid? id { get; set; }
+        public long cus_num { get; set; } 
         
     }
 }

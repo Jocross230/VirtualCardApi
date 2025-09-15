@@ -3,10 +3,13 @@ using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
 using VisualCard.Services;
-using VirtualCard.Services;
+using VisualCard.Services;
 using VirtualCard.Help;
 using VirtualCard.Data;
+using VirtualCard.Model;
 using Microsoft.OpenApi.Models;
+using System.Text.Json.Serialization;
+using Microsoft.OpenApi.Any;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -88,6 +91,21 @@ builder.Services.AddSwaggerGen(c =>
     // Enable enum as string in Swagger UI
     c.SchemaFilter<VirtualCard.Services.EnumSchemaFilter>();
 });
+/*builder.Services
+    .AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
+    c.MapType<CreateCardChannel>(() => new OpenApiSchema
+    {
+        Type = "string",
+        Enum = (IList<IOpenApiAny>)Enum.GetNames(typeof(CreateCardChannel)).Select(n => new OpenApiString(n)).ToList()
+    });
+});*/
 
 
 var app = builder.Build();

@@ -14,7 +14,9 @@ namespace VirtualCard.Services
                     {
                         schema.Enum.Add(new Microsoft.OpenApi.Any.OpenApiString(name));
                     }
-                }
+                schema.Type = "string";
+                schema.Format = null;
+            }
             }
         
     }
