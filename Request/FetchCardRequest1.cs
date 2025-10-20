@@ -1,10 +1,8 @@
 ﻿namespace VirtualCard.Request
 {
-    public class BlockCard
+    public class FetchCardRequest1
     {
-        public string accountNumber { get; set; }
         public string cardReference { get; set; }
+        public string pin { get; set; }
     }
-  
-    
 }

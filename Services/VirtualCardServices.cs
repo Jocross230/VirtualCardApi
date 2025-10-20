@@ -1,21 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using RestSharp;
 using System.Net.Http.Headers;
 using System.Text;
 using VirtualCard.Data;
+using VirtualCard.Dtos;
 using VirtualCard.Help;
+using VirtualCard.Model;
 using VirtualCard.Request;
 using VirtualCard.TokenResponses;
 using VisualCard.Helper;
 using VisualCard.Interface;
-using VisualCard.Model;
 using RestClientOptions = RestSharp.RestClientOptions;
-/*using static SunTrustProxy;
-using Org.BouncyCastle.Asn1.Ocsp;
-using Newtonsoft.Json.Linq;
-using System.Security.Cryptography;
-*/
+
 namespace VisualCard.Services
 {
     public class VirtualCardServices : IVirtualCard
@@ -52,39 +50,42 @@ namespace VisualCard.Services
             _contxt = contxt;
         }
 
+       
         public async Task<EncryptResponse> BlockCardAsync(EncryptRequest encryptRequest)
         {
-            EncryptResponse encryptResponse = new EncryptResponse();
-            var sdata = string.Empty;
+            var encryptResponse = new EncryptResponse();
+            string sdata = string.Empty;
+
             try
             {
-                // string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<BlockCard>(decrypt);
-                /*if (decrypted?.cards == null)
-                    throw new Exception("Decrypted object or cards property is null.");*/
-                var newRequest = new BlockedCard
+
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber) || string.IsNullOrEmpty(decrypted.cardReference))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
+
+                
+                var newRequest = new BlockCard
                 {
                     accountNumber = decrypted.accountNumber,
                     cardReference = decrypted.cardReference
                 };
 
-                var deserialize = JsonConvert.SerializeObject(newRequest);
-                // Serialize the request
-                /* var json = JsonConvert.SerializeObject(BlockedCards);
-                 var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-                string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
+                var serializedPayload = JsonConvert.SerializeObject(newRequest);
 
-                // 3. Validate Base64 encoding
+                
+                string encryptedData = _cryptoUtils.EncryptData(serializedPayload, _configuration["AppSettings:enc_key"]);
 
-
-                // 4. Retrieve a fresh access to
+                
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // 5. Create HTTP client and request
+                
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/cardBlock", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v1/cardBlock", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -92,43 +93,81 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
+                _logger.LogInformation("🔐 Sending card block request for account {Account} / cardRef {CardRef}",
+                    decrypted.accountNumber, decrypted.cardReference);
+
                 RestResponse response = await client.ExecuteAsync(request);
 
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("❌ Downstream error: {Status} - {Body}", response.StatusCode, response.Content);
+                    var failResp = new BlockedCard
+                    {
+                        successful = false,
+                        responseCode = "06",
+                        responseMessage = $"Downstream error: {response.StatusCode}"
+                    };
+                    sdata = JsonConvert.SerializeObject(failResp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
-
+                
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
+                _logger.LogInformation("✅ Decrypted downstream response: {Response}", decryptedData);
 
-                // return decryptedData;
+                
+                BlockedCard? apiResponse;
+                try
+                {
+                    apiResponse = JsonConvert.DeserializeObject<BlockedCard>(decryptedData);
+                }
+                catch
+                {
+                    _logger.LogWarning("⚠️ Could not deserialize downstream response — returning generic failure.");
+                    apiResponse = new BlockedCard
+                    {
+                        successful = false,
+                        responseCode = "01",
+                        responseMessage = "Invalid response format from downstream."
+                    };
+                }
 
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
+                
+                if (apiResponse == null)
+                {
+                    apiResponse = new BlockedCard
+                    {
+                        successful = false,
+                        responseCode = "03",
+                        responseMessage = "Empty response from downstream."
+                    };
+                }
+
+                
+                sdata = JsonConvert.SerializeObject(apiResponse);
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
 
                 return encryptResponse;
             }
             catch (Exception ex)
             {
-                var resp = new
+                _logger.LogError(ex, "❌ Exception during BlockCardAsync.");
+
+                var resp = new BlockedCard
                 {
-                    statuscode = "96",
-                    statusmessage = "System Malfunction, please try again."
+                    successful = false,
+                    responseCode = "96",
+                    responseMessage = "System Malfunction, please try again."
                 };
+
                 sdata = JsonConvert.SerializeObject(resp);
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
 
                 return encryptResponse;
             }
-
-
         }
+
 
         public async Task<EncryptResponse> ChangeCardPinAsync(EncryptRequest encryptRequest)
         {
@@ -139,11 +178,15 @@ namespace VisualCard.Services
 
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<ChangePinRequest>(decrypt);
-
-                /*var json = JsonConvert.SerializeObject(pinChangeRequest);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber) 
+                    || string.IsNullOrEmpty(decrypted.oldPin) || 
+                    string.IsNullOrEmpty(decrypted.cardReference) || 
+                    string.IsNullOrEmpty(decrypted.newPin))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
                 var newRequest = new ChangePinRequest
                 {
                     accountNumber = decrypted.accountNumber,
@@ -155,15 +198,12 @@ namespace VisualCard.Services
                 var deserialize = JsonConvert.SerializeObject(newRequest);
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
+                
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // 5. Create HTTP client and request
+                
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/pinChange", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v1/pinChange", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -171,23 +211,17 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
+                
                 RestResponse response = await client.ExecuteAsync(request);
-
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
                     string errorMessage = response.Content ?? "Unknown error occurred.";
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
-
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
-                //return decryptedData;
+                
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
@@ -217,6 +251,16 @@ namespace VisualCard.Services
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<ResetPinRequest>(decrypt);
 
+                if (decrypted == null ||
+                    string.IsNullOrWhiteSpace(decrypted.cardReference) ||
+                    string.IsNullOrWhiteSpace(decrypted.accountNumber))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96"); 
+                    return encryptResponse;
+                }
+
+
                 var newRequest = new ChangePinRequest
                 {
                     accountNumber = decrypted.accountNumber,
@@ -226,20 +270,13 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-                /*var json = JsonConvert.SerializeObject(ResetPinRequests);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
+                
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // 5. Create HTTP client and request
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/pinReset", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v1/pinReset", Method.Post) 
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -247,26 +284,19 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
                 RestResponse response = await client.ExecuteAsync(request);
-
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
                     string errorMessage = response.Content ?? "Unknown error occurred.";
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
-
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                // return decryptedData;
+                
 
             }
             catch (Exception ex)
@@ -289,24 +319,19 @@ namespace VisualCard.Services
 
         public async Task<EncryptResponse> GetCardStatusAsync(EncryptRequest encryptRequest)//CardStatusRequest erequest)
         {
-            //StandardResponse response = new StandardResponse();
+            
             EncryptResponse encryptResponse = new EncryptResponse();
             var sdata = string.Empty;
             try
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-                /* if (decrypt == "99")
-                 {
-                     var resp = new
-                     {
-                         statuscode = "96",
-                         statusmessage = "System Malfunction"
-                     };
-                     sdata = JsonConvert.SerializeObject(resp);
-                     encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
-
-                     return encryptResponse;
-                 }*/
+                
+                if (decrypt== "96")
+                {
+                    _logger.LogWarning("❌ Decryption failed — returned system error code 96.");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("System malfunction");
+                    return encryptResponse;
+                }
 
                 var newRequest = new
                 {
@@ -315,19 +340,9 @@ namespace VisualCard.Services
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
 
-                //var json = JsonConvert.SerializeObject(decrypt);
-                //var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                //var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);
-
                 string encryptedData = _cryptoUtils.EncryptData(deserialize, _configuration["AppSettings:enc_key"]);
-
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // 5. Create HTTP client and request
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v1/cardStatus", Method.Post) // Corrected endpoint
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
@@ -337,24 +352,14 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
                 RestResponse response = await client.ExecuteAsync(request);
-
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
                     string errorMessage = response.Content ?? "Unknown error occurred.";
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
-
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
-
-
-                //var sdata2 = JsonConvert.SerializeObject(decryptedData);
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
@@ -375,341 +380,74 @@ namespace VisualCard.Services
             return null;
 
         }
-
-        public async Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest)
-        {
-            EncryptResponse encryptResponse = new EncryptResponse();
-            var sdata = string.Empty;
-            try
-            {
-                // Generate a unique client reference
-                var clientReference = Guid.NewGuid().ToString();
-                encryptRequest.GetType().GetProperty("clientReference")?.SetValue(encryptRequest, clientReference);
-
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-                var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
-
-                _logger.LogInformation("Validating account ownership for userId {UserId}", decrypted.userId);
-
-                var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
-
-                if (ownershipValidationResult == null || ownershipValidationResult?.responseCode != ResponseCode.SUCCESSFUL)
-                {
-                    _logger.LogWarning("Ownership validation failed for userId {UserId}", decrypted.userId);
-                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
-                    return encryptResponse;
-                }
-               /* var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
-                *//*if (!ownershipValidationResult..ToLower().Contains(decrypted.firstName.ToLower()) ||
-    !ownershipValidationResult.AccountName.ToLower().Contains(decrypted.lastName.ToLower()))*//*
-                if (ownershipValidationResult == null || ownershipValidationResult.responseCode != ResponseCode.SUCCESSFUL)
-
-                {
-                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
-                    return encryptResponse;
-                }*/
-
-                var newRequest = new CreateCard
-                {
-                    lastName = decrypted.lastName,
-                    city = decrypted.city,
-                    accountType = decrypted.accountType,
-                    postalCode = decrypted.postalCode,
-                    streetAddressLine2 = decrypted.streetAddressLine2,
-                    userId = decrypted.userId,
-                    mobileNr = decrypted.mobileNr,
-                    cardProgram = decrypted.cardProgram,
-                    firstName = decrypted.firstName,
-                    accountId = decrypted.accountId,
-                    emailAddress = decrypted.emailAddress,
-                    nameOnCard = decrypted.nameOnCard,
-                    streetAddress = decrypted.streetAddress,
-                    countryCode = decrypted.countryCode,
-                    issuerNr = decrypted.issuerNr,
-                    state = decrypted.state,
-                    currencyCode = decrypted.currencyCode,
-                    alias = decrypted.alias,
-                    clientReference = clientReference,
-                };
-
-                var deserialize = JsonConvert.SerializeObject(newRequest);
-                // Serialize the request
-                /*var json = JsonConvert.SerializeObject(CreateCards);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-
-                // Encrypt the request data
-                string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:denc_key"]);
-
-                // Validate Base64 format
-                /*if (!IsBase64String(encryptedData))
-                    throw new Exception("Encryption error: Encrypted data is not a valid Base64 string.");*/
-
-
-                // Get a fresh access token
-                var tokenResponse = await _generateToken.GetToken2();
-
-                // Create the HTTP client and request
-                var baseUrl = _configuration["AppSettings:BaseUrl"];
-                var client = new RestClient(baseUrl);
-               //
-                var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
-                    .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
-                    .AddHeader("Content-Type", "application/json")
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Authorization", $"Bearer {tokenResponse.AccessToken.Trim()}")
-                    .AddHeader("ChannelID", _configuration["AppSettings:ChannelID2"])
-                    .AddBody(encryptedData);  // Ensure proper formatting
-
-                // Send the request
-                RestResponse response = await client.ExecuteAsync(request);
-
-                if (!response.IsSuccessful)
-                {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
-                }
-
-                // Decrypt the response data
-                string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
-                var decryptedCardResponse = JsonConvert.DeserializeObject<Root>(decryptedData);
-                var decryptedCardData = new CreatedCard
-                {
-                    alias = decryptedCardResponse.card.alias,
-                    clientReference = decryptedCardResponse.card.clientReference,
-                    cardReference = decryptedCardResponse.card.cardReference,
-                    accountNumber = decryptedCardResponse.card.accountNumber,
-                    pan = MaskPan(decryptedCardResponse.card.pan),
-                    seqNr = decryptedCardResponse.card.seqNr,
-                    issuerNr = decryptedCardResponse.card.issuerNr,
-                    userId = decryptedCardResponse.card.userId,
-                    pinOffset = decryptedCardResponse.card.pinOffset,
-                    customerId = decryptedCardResponse.card.customerId,
-                    defaultAccountType = decryptedCardResponse.card.defaultAccountType,
-                    blocked = decryptedCardResponse.card.blocked,
-                    failedPinAttempts = decryptedCardResponse.card.failedPinAttempts,
-                    creationChannel = decryptedCardResponse.card.creationChannel,
-
-
-                };
-                // Add to DbContext and save
-                await _context.CreatedCards.AddAsync(decryptedCardData);
-                await _context.SaveChangesAsync();
-
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
-
-                return encryptResponse;
-                //return decryptedData;
-            }
-            
-            catch (Exception ex)
-            {
-                var resp = new
-                {
-                    statuscode = "96",
-                    statusmessage = "System Malfunction, please try again."
-                };
-                sdata = JsonConvert.SerializeObject(resp);
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
-
-                return encryptResponse;
-            }
-
-
-        }
-        public async Task<EncryptResponse> CreateCardAsync(EncryptRequest encryptRequest, string Channel)
-        {
-            EncryptResponse encryptResponse = new EncryptResponse();
-            var sdata = string.Empty;
-
-            try
-            {
-                // Decrypt the incoming request
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-                var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
-
-                // ✅ Generate a unique client reference and assign it
-                var clientReference = Guid.NewGuid().ToString();
-                decrypted.clientReference = clientReference;
-
-                // ✅ Validate account ownership
-                _logger.LogInformation("Validating account ownership for userId {UserId}", decrypted.userId);
-
-                var ownershipValidationResult = SunTrustProxy.getAccountBy_CUS_NUM(decrypted.userId);
-
-                if (ownershipValidationResult == null || ownershipValidationResult.responseCode != ResponseCode.SUCCESSFUL)
-                {
-                    _logger.LogWarning("Ownership validation failed for userId {UserId}", decrypted.userId);
-                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account does not belong to the user. Card creation denied.");
-                    return encryptResponse;
-                }
-
-                // ✅ Build the request object with updated clientReference
-                var newRequest = new CreateCard
-                {
-                    lastName = decrypted.lastName,
-                    city = decrypted.city,
-                    accountType = decrypted.accountType,
-                    postalCode = decrypted.postalCode,
-                    streetAddressLine2 = decrypted.streetAddressLine2,
-                    userId = decrypted.userId,
-                    mobileNr = decrypted.mobileNr,
-                    cardProgram = decrypted.cardProgram,
-                    firstName = decrypted.firstName,
-                    accountId = decrypted.accountId,
-                    emailAddress = decrypted.emailAddress,
-                    nameOnCard = decrypted.nameOnCard,
-                    streetAddress = decrypted.streetAddress,
-                    countryCode = decrypted.countryCode,
-                    issuerNr = decrypted.issuerNr,
-                    state = decrypted.state,
-                    currencyCode = decrypted.currencyCode,
-                    alias = decrypted.alias,
-                    clientReference = decrypted.clientReference,
-                };
-
-                var jsonToEncrypt = JsonConvert.SerializeObject(newRequest);
-
-                // ✅ Encrypt the new request payload
-                string encryptedData = _cryptoUtils.EncryptData(jsonToEncrypt, _configuration["AppSettings:denc_key"]);
-
-                // ✅ Get a fresh access token
-                var tokenResponse = await _generateToken.GetToken2();
-
-                // ✅ Prepare the HTTP request
-                var baseUrl = _configuration["AppSettings:BaseUrl"];
-                var client = new RestClient(baseUrl);
-                var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
-                    .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
-                    .AddHeader("Content-Type", "application/json")
-                    .AddHeader("Accept", "application/json")
-                    .AddHeader("Authorization", $"Bearer {tokenResponse.AccessToken.Trim()}")
-                    .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
-                    .AddBody(encryptedData);
-
-                // ✅ Send the request
-                RestResponse response = await client.ExecuteAsync(request);
-
-                if (!response.IsSuccessful)
-                {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
-                }
-
-                // ✅ Decrypt the response and store the card
-                string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
-                var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
-
-                var decryptedCardData = new CreatedCard
-                {
-                    alias = decryptedCardResponse.card.alias,
-                    clientReference = decryptedCardResponse.card.clientReference,
-                    cardReference = decryptedCardResponse.card.cardReference,
-                    accountNumber = decryptedCardResponse.card.accountNumber,
-                    pan = MaskPan(decryptedCardResponse.card.pan),
-                    seqNr = decryptedCardResponse.card.seqNr,
-                    issuerNr = decryptedCardResponse.card.issuerNr,
-                    userId = decryptedCardResponse.card.userId,
-                    pinOffset = decryptedCardResponse.card.pinOffset,
-                    customerId = decryptedCardResponse.card.customerId,
-                    defaultAccountType = decryptedCardResponse.card.defaultAccountType,
-                    blocked = decryptedCardResponse.card.blocked,
-                    failedPinAttempts = decryptedCardResponse.card.failedPinAttempts,
-                    creationChannel = Channel,
-                };
-
-                await _context.CreatedCards.AddAsync(decryptedCardData);
-                await _context.SaveChangesAsync();
-
-                // ✅ Return encrypted response
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
-                return encryptResponse;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Card creation failed.");
-                var resp = new
-                {
-                    statuscode = "96",
-                    statusmessage = "System Malfunction, please try again."
-                };
-                sdata = JsonConvert.SerializeObject(resp);
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
-
-                return encryptResponse;
-            }
-
-
-
-
-        }
         public async Task<EncryptResponse> CreateCard2Async(EncryptRequest encryptRequest, string Channel)
         {
-            var encryptResponse = new EncryptResponse();
             string sdata = string.Empty;
+            var encryptResponse = new EncryptResponse();
 
             try
             {
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-                var decrypted = JsonConvert.DeserializeObject<CreateCard>(decrypt);
+                var decryptedJson = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
 
-                // ✅ Generate a unique client reference and assign it
-                var clientReference = Guid.NewGuid().ToString();
-                decrypted.clientReference = clientReference;
-                // 🔓 Decrypt the incoming payload (expected to be just the account number)
-               // var decryptedAccountId = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
+                if (decryptedJson == "96")
+                {
+                    _logger.LogWarning("Decryption failed — returned system error code 96.");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("System malfunction");
+                    return encryptResponse;
+                }
 
-                _logger.LogInformation("Decrypted accountId: {AccountId}", decrypted.accountId);
+                var jsonObj = JObject.Parse(decryptedJson);
+                var accountId = jsonObj["accountId"]?.ToString();
 
-                // 🔍 Fetch customer details using account number
-                var accountInfo = SunTrustProxy.getAccountBynumber(decrypted.accountId);
+                _logger.LogInformation("Creating card for accountId: {AccountId}", accountId);
 
+                if (string.IsNullOrEmpty(accountId))
+                {
+                    _logger.LogWarning("❌ Missing accountId in decrypted payload");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Invalid account data.");
+                    return encryptResponse;
+                }
+
+                
+                var accountInfo = SunTrustProxy.getAccountBynumber(accountId);
                 if (accountInfo == null || accountInfo.responseCode != "00" || accountInfo.Items == null || !accountInfo.Items.Any())
                 {
-                    _logger.LogWarning("Account not found or invalid for accountId: {AccountId}", decrypted.accountId);
-
+                    _logger.LogWarning("Account not found or invalid for accountId: {AccountId}", accountId);
                     encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("Account not found. Card creation denied.");
                     return encryptResponse;
                 }
 
                 var customer = accountInfo.Items[0];
 
-                // ✅ Build the CreateCard request from fetched data
+                
                 var newRequest = new CreateCard
                 {
-                    accountId = decrypted.accountId,
-                    firstName = decrypted.firstName,
-                    lastName = decrypted.lastName,
-                    nameOnCard = $"{decrypted.firstName} {decrypted.lastName}",
-                    userId = decrypted.userId, // Assuming CUS_NUM is the user ID
-                    mobileNr = decrypted.mobileNr,
-                    emailAddress = decrypted.emailAddress,
-                    city = decrypted.city,
-                    postalCode = decrypted.postalCode,
-                    streetAddress = decrypted.streetAddress,
-                    streetAddressLine2 = decrypted.streetAddressLine2,
-                    state = decrypted.state,
-                    countryCode = decrypted.countryCode,
-                    accountType = decrypted.accountType,
-                    currencyCode = decrypted.currencyCode,
-                    alias = decrypted.alias,
-                    clientReference = decrypted.clientReference,
-
-                    // Constants
+                    lastName = customer.LastName,
+                    firstName = customer.FirstName,
+                    nameOnCard = $"{customer.FirstName} {customer.LastName}".Trim(),
+                    accountId = customer.Nuban,
+                    accountType = customer.AccountType,
+                    userId = customer.CustomerNumber,
+                    mobileNr = customer.Phone,
+                    emailAddress = customer.Email,
+                    streetAddress = customer.Address,
+                    city = null,
+                    state = null,
+                    countryCode = null,
+                    postalCode = null,
                     cardProgram = "SUNTRUST VIRTUAL VER",
-                    issuerNr = "81"
+                    issuerNr = "81",
+                    currencyCode = customer.CurrencyCode,
+                    alias = null,
+                    clientReference = Guid.NewGuid().ToString(),
                 };
 
-                var jsonToEncrypt = JsonConvert.SerializeObject(newRequest);
-
-                // 🔐 Encrypt payload for downstream request
+                string jsonToEncrypt = JsonConvert.SerializeObject(newRequest);
                 string encryptedData = _cryptoUtils.EncryptData(jsonToEncrypt, _configuration["AppSettings:denc_key"]);
 
-                // 🔑 Get access token
                 var tokenResponse = await _generateToken.GetToken2();
 
-                var baseUrl = _configuration["AppSettings:BaseUrl"];
-                var client = new RestClient(baseUrl);
+                var client = new RestClient(_configuration["AppSettings:BaseUrl"]);
                 var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
@@ -726,12 +464,19 @@ namespace VisualCard.Services
                     throw new Exception($"Card creation failed: {response.StatusCode}, {errorMessage}");
                 }
 
-                // 🔓 Decrypt and save card response
+             
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
                 var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
 
-                var card = decryptedCardResponse.card;
+                var card = decryptedCardResponse?.card;
+                if (card == null)
+                {
+                    _logger.LogWarning("❌ Invalid downstream card response");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("System malfunction");
+                    return encryptResponse;
+                }
 
+                
                 var savedCard = new CreatedCard
                 {
                     alias = card.alias,
@@ -740,20 +485,38 @@ namespace VisualCard.Services
                     accountNumber = card.accountNumber,
                     pan = MaskPan(card.pan),
                     seqNr = card.seqNr,
-                    issuerNr = card.issuerNr,
-                    userId = card.userId,
+                    expiryDate = card.expiryDate,
                     pinOffset = card.pinOffset,
+                    cvv = card.cvv,
+                    cvv2 = card.cvv2,
+                    pinInfo = card.pinInfo,
+                    track2 = card.track2,
                     customerId = card.customerId,
                     defaultAccountType = card.defaultAccountType,
                     blocked = card.blocked,
                     failedPinAttempts = card.failedPinAttempts,
                     creationChannel = Channel
+
                 };
 
                 await _context.CreatedCards.AddAsync(savedCard);
                 await _context.SaveChangesAsync();
+                _logger.LogInformation("✅ Saving card for Account {AccountNumber}", savedCard.accountNumber);
 
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
+
+
+                var cardResponse = new Roots
+                {
+                    successful = true,
+                    responseCode = "00",
+                    responseMessage = "Card created successfully",
+                    defaultPin = decryptedCardResponse.defaultPin,
+                    card = savedCard
+                };
+
+
+                string responseJson = JsonConvert.SerializeObject(cardResponse);
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(responseJson);
                 return encryptResponse;
             }
             catch (Exception ex)
@@ -771,7 +534,7 @@ namespace VisualCard.Services
 
                 return encryptResponse;
             }
-        }
+        } 
         private bool IsBase64String(string base64)
         {
             try
@@ -802,9 +565,12 @@ namespace VisualCard.Services
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<FetchCardsByCreationChannelRequest>(decrypt);
-                /* var json = JsonConvert.SerializeObject(erequest);
-                 var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.creationChannel))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
                 var newRequest = new FetchCardsByCreationChannelRequest
                 {
                     creationChannel = decrypted.creationChannel
@@ -873,6 +639,13 @@ namespace VisualCard.Services
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<FetchCardRefandPin>(decrypt);
 
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.clientReference) || string.IsNullOrEmpty(decrypted.pin))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
+
                 var newRequest = new FetchCardRefandPin
                 {
                     clientReference = decrypted.clientReference,
@@ -880,23 +653,10 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-                // Generate a unique client reference
-                //var clientReference = Guid.NewGuid().ToString();
-                //req.GetType().GetProperty("clientReference")?.SetValue(req, clientReference);
-
-                // Serialize the request
-                /*var json = JsonConvert.SerializeObject(req);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-
-                // Encrypt the request data
+               
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // Validate Base64 format
-                /*if (!IsBase64String(encryptedData))
-                    throw new Exception("Encryption error: Encrypted data is not a valid Base64 string.");*/
-
-                // Get a fresh access token
+               
                 var tokenResponse = await _generateToken.GetToken2();
 
                 // Create the HTTP client and request
@@ -918,13 +678,13 @@ namespace VisualCard.Services
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // Decrypt the response data
+                
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                //return decryptedData;
+                
             }
             catch (Exception ex)
             {
@@ -950,7 +710,14 @@ namespace VisualCard.Services
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<FetchCardRequest1>(decrypt);
+                
 
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.cardReference) || string.IsNullOrEmpty(decrypted.pin))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
                 var newRequest = new FetchCardRequest1
                 {
                     cardReference = decrypted.cardReference,
@@ -1027,6 +794,14 @@ namespace VisualCard.Services
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<GetStatementRequest>(decrypt);
 
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.cardReference) 
+                    || string.IsNullOrEmpty(decrypted.fromDate)
+                    || string.IsNullOrEmpty(decrypted.toDate))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
                 var newRequest = new GetStatementRequest
                 {
 
@@ -1040,20 +815,12 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-                /* var json = JsonConvert.SerializeObject(erequest);
-                 var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
                 var tokenResponse = await _generateToken.GetToken2();
 
-                // 5. Create HTTP client and request
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/statement", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v1/statement", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -1061,26 +828,19 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
                 RestResponse response = await client.ExecuteAsync(request);
 
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
                     string errorMessage = response.Content ?? "Unknown error occurred.";
                     throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
                 }
 
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
-
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                //return decryptedData;
             }
             catch (Exception ex)
             {
@@ -1096,71 +856,84 @@ namespace VisualCard.Services
             }
         }
 
+       
         public async Task<EncryptResponse> UnblockCardAsync(EncryptRequest encryptRequest)
         {
-            EncryptResponse encryptResponse = new EncryptResponse();
-            var sdata = string.Empty;
+            var encryptResponse = new EncryptResponse();
+            string sdata = string.Empty;
+
             try
             {
+                
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<UnBlockCard>(decrypt);
 
-                var newRequest = new ChangePinRequest
+                
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber) || string.IsNullOrEmpty(decrypted.cardReference))
+                {
+                    _logger.LogWarning("Decryption failed");
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
+                    return encryptResponse;
+                }
+
+                
+                var newRequest = new UnBlockCard
                 {
                     accountNumber = decrypted.accountNumber,
-                    cardReference = decrypted.cardReference,
-
-
+                    cardReference = decrypted.cardReference
                 };
+                var serializedPayload = JsonConvert.SerializeObject(newRequest);
+                string encryptedData = _cryptoUtils.EncryptData(serializedPayload, _configuration["AppSettings:enc_key"]);
 
-                var deserialize = JsonConvert.SerializeObject(newRequest);
-                /*var json = JsonConvert.SerializeObject(UnBlockedCards);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
-
-                // Encrypt the request data and ensure proper encoding
-                string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
-
-                // Validate Base64 format
-
-
-                // Get a fresh access token
+                
                 var tokenResponse = await _generateToken.GetToken2();
+
+                
                 var url = $"{_configuration.GetValue<string>("BaseUrl")}/virtualcard/api/v1/cardUnblock";
-
-                var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
-
-                // Set required headers
+                using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
                 httpRequest.Headers.Add("IssuerID", _configuration["AppSettings:IssuerID"]);
                 httpRequest.Headers.Add("Accept", "application/json");
                 httpRequest.Headers.Add("Authorization", $"Bearer {tokenResponse.AccessToken}");
                 httpRequest.Headers.Add("ChannelID", _configuration["AppSettings:ChannelID"]);
-
-                // Set request content FIRST before modifying headers
                 httpRequest.Content = new StringContent(encryptedData, Encoding.UTF8, "text/plain");
 
-                // Now modify Content-Type correctly
-                httpRequest.Content.Headers.ContentType = new MediaTypeHeaderValue("text/plain"); // ✅ Correct placement
-
-                // Send the request
+                
                 var response = await _httpClient.SendAsync(httpRequest);
-                response.EnsureSuccessStatusCode();
 
-                var jsonresponse = await response.Content.ReadAsStringAsync();
-                string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
+                
+                if (!response.IsSuccessStatusCode)
+                {
+                    var failResp = new UnblockedCard
+                    {
+                        successful = false,
+                        responseCode = "06",
+                        responseMessage = $"Downstream error: {response.StatusCode}"
+                    };
+                    sdata = JsonConvert.SerializeObject(failResp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
-                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptdata);
+                
+                var jsonResponse = await response.Content.ReadAsStringAsync();
+                var decryptedData = _cryptoUtils.DecryptData(jsonResponse, _configuration["AppSettings:enc_key"]);
+
+                
+                encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                //return decryptdata;
             }
             catch (Exception ex)
             {
-                var resp = new
+                _logger.LogError(ex, "❌ Exception during UnblockCardAsync.");
+
+                var resp = new BlockedCard
                 {
-                    statuscode = "96",
-                    statusmessage = "System Malfunction, please try again."
+                    successful = false,
+                    responseCode = "96",
+                    responseMessage = "System Malfunction, please try again."
                 };
+
                 sdata = JsonConvert.SerializeObject(resp);
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
 
@@ -1168,9 +941,11 @@ namespace VisualCard.Services
             }
         }
 
+
+
         public async Task<CreatedCard> GetByUserIdAsync(string UserId)
         {
-            var result = await _context.CreatedCards.FirstOrDefaultAsync(s => s.userId == UserId);
+            var result = await _context.CreatedCards.FirstOrDefaultAsync(s => s.customerId == UserId);
            
             return result;
         }
@@ -1189,13 +964,11 @@ namespace VisualCard.Services
                 );
             var emailResponse = JsonConvert.DeserializeObject<EmailResponse>(response.ToString());
 
-            // Check if response is successful
             if (emailResponse?.ResponseCode == "00")
             {
-                // Save the dispute to the database
 
 
-                _context.VirtualCardTransactionDisputes.Add(dis); // Use context instead of _context
+                _context.VirtualCardTransactionDisputes.Add(dis); 
                 await _context.SaveChangesAsync();
 
 
@@ -1226,7 +999,7 @@ namespace VisualCard.Services
 
                 var createdCard = await _context.CreatedCards
                     .AsNoTracking()
-                    .FirstOrDefaultAsync(c => c.userId == cusNum);
+                    .FirstOrDefaultAsync(c => c.customerId == cusNum);
 
                 if (createdCard == null)
                 {
