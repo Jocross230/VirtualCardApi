@@ -1,9 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using VisualCard.Interface;
-using VisualCard.Model;
+//using VirtualCard.Dtos;
 using VirtualCard.Model;
 using VirtualCard.Request;
+using VirtualCard.Dtos;
 
 
 namespace VirtualCard.Controllers
@@ -21,29 +22,7 @@ namespace VirtualCard.Controllers
             _logger = logger;
             _visualCard = visualCard;
         }
-        [HttpPost("create-card")]
-        public async Task<IActionResult> CreateCard([FromBody] EncryptRequest encryptRequest, [FromQuery] CreateCardChannel channel)
-        {
-            if (encryptRequest == null)
-            {
-                return BadRequest("Invalid request data.");
-            }
-
-            try
-            {
-                if (!Enum.IsDefined(typeof(CreateCardChannel), channel))
-                    return BadRequest(new { message = "Invalid or missing transaction channel." });
-                
-                var channelName = channel.ToString().Replace('_', '-');
-
-                var result = await _visualCard.CreateCardAsync(encryptRequest, channelName);
-                return Ok(new { Message = "Card created successfully", Data = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
+       
         [HttpPost("create-card2")]
         public async Task<IActionResult> Create2Card([FromBody] EncryptRequest encryptRequest, [FromQuery] CreateCardChannel channel)
         {
@@ -71,17 +50,10 @@ namespace VirtualCard.Controllers
         {
             _logger.LogInformation("Received BlockCard request: {@Request}", encryptRequest);
 
-           /* if (encryptRequest == null || string.IsNullOrEmpty(req.accountNumber))
-            {
-                _logger.LogWarning("BlockCard request failed: Invalid request data.");
-                return BadRequest("Invalid request data.");
-            }*/
-
             try
             {
                 var response = await _visualCard.BlockCardAsync(encryptRequest);
 
-                // Log the response
                 _logger.LogInformation("BlockCard response: {Response}", response);
 
                 return Ok(new { Message = "Card blocked successful", Data = response });
@@ -214,7 +186,7 @@ namespace VirtualCard.Controllers
             {
                 var result = await _visualCard.UnblockCardAsync(encryptRequest);
 
-                // Log the successful response
+                
                 _logger.LogInformation("UnblockCard response: {successful}", result);
 
                 return Ok(new { Message = "Card unblocked successful", Data = result });
@@ -225,7 +197,7 @@ namespace VirtualCard.Controllers
                 return StatusCode(500, $"Internal server error: {ex.Message}");
             }
         }
-        [HttpGet("Cus-Num")]
+        [HttpGet("UsedId")]
         public async Task<IActionResult> FindByIdAsync( string UserId)
         {
             try
@@ -233,21 +205,21 @@ namespace VirtualCard.Controllers
                 
                 var result = await _visualCard.GetByUserIdAsync(UserId);
 
-                // If result is found, return the result
+                
                 if (result != null)
                 {
                     return Ok(result);
                 }
 
-                // If result is not found, return a 404 not found response
+                
                 return NotFound($"No record found : {UserId}");
             }
             catch (Exception ex)
             {
-                // Log the exception (if logging is configured)
+                
                 _logger.LogError($"An error occurred : {UserId}. Error: {ex.Message}");
 
-                // Return a 500 server error response
+                
                 return StatusCode(500, $"An error occurred: {ex.Message}");
             }
         }

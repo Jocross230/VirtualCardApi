@@ -4,7 +4,7 @@
 
 namespace VirtualCard.Migrations
 {
-    public partial class InitVirtualCard : Migration
+    public partial class MakeAliasNullable : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
@@ -42,20 +42,23 @@ namespace VirtualCard.Migrations
                 {
                     Id = table.Column<int>(type: "int", nullable: false)
                         .Annotation("SqlServer:Identity", "1, 1"),
-                    alias = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    clientReference = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    cardReference = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    accountNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    pan = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    seqNr = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    issuerNr = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    userId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    pinOffset = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    customerId = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    defaultAccountType = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    blocked = table.Column<bool>(type: "bit", nullable: false),
-                    failedPinAttempts = table.Column<int>(type: "int", nullable: false),
-                    creationChannel = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    alias = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    clientReference = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    cardReference = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    accountNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    pan = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    seqNr = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    expiryDate = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    pinOffset = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    cvv = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    cvv2 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    pinInfo = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    track2 = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    customerId = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    defaultAccountType = table.Column<string>(type: "nvarchar(max)", nullable: true),
+                    blocked = table.Column<bool>(type: "bit", nullable: true),
+                    failedPinAttempts = table.Column<int>(type: "int", nullable: true),
+                    creationChannel = table.Column<string>(type: "nvarchar(max)", nullable: true)
                 },
                 constraints: table =>
                 {

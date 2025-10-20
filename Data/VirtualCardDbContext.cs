@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using VirtualCard.Request;
+using VirtualCard.Dtos;
 
 
 namespace VirtualCard.Data

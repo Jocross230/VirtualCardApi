@@ -1,6 +1,6 @@
 ﻿using Newtonsoft.Json;
 
-namespace VisualCard.Model
+namespace VirtualCard.Dtos
 {
     public class ResponseToken
     {
