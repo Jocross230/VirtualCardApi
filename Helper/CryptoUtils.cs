@@ -7,34 +7,36 @@ using Org.BouncyCastle.Crypto.Engines;
 using Org.BouncyCastle.Crypto.Modes;
 using Org.BouncyCastle.Crypto.Paddings;
 using Org.BouncyCastle.Utilities.Encoders;
-using VisualCard.Helper;
 using Newtonsoft.Json;
 using Org.BouncyCastle.Asn1.Ocsp;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
+using VirtualCard.Helper;
 
-public class CryptoUtils :ICryptoUtils
+namespace VirtualCard.Helper
 {
+    public class CryptoUtils : ICryptoUtils
+    {
     private byte[] GetAESKey(string key)
     {
         byte[] keyBytes = Encoding.UTF8.GetBytes(key);
         if (keyBytes.Length < 32)
         {
-            Array.Resize(ref keyBytes, 32);  
+            Array.Resize(ref keyBytes, 32);
         }
         else if (keyBytes.Length > 32)
         {
-            Array.Resize(ref keyBytes, 32);  
+            Array.Resize(ref keyBytes, 32);
         }
         return keyBytes;
     }
-   
+
 
     public string EncryptData(string data, string enc_key)
     {
         using (var aesAlg = new AesCryptoServiceProvider())
         {
             aesAlg.Key = GetAESKey(enc_key);
-            aesAlg.IV = new byte[16]; 
+            aesAlg.IV = new byte[16];
 
             aesAlg.Mode = CipherMode.CBC;
             aesAlg.Padding = PaddingMode.PKCS7;
@@ -45,17 +47,18 @@ public class CryptoUtils :ICryptoUtils
             byte[] encryptedBytes = encryptor.TransformFinalBlock(dataBytes, 0, dataBytes.Length);
 
             return Convert.ToBase64String(encryptedBytes);
-        };
+        }
+        ;
 
     }
 
-    
+
     public string DecryptData(string encryptedData, string denc_key)
     {
         using (var aesAlg = new AesCryptoServiceProvider())
         {
             aesAlg.Key = GetAESKey(denc_key);
-            aesAlg.IV = new byte[16]; 
+            aesAlg.IV = new byte[16];
 
             aesAlg.Mode = CipherMode.CBC;
             aesAlg.Padding = PaddingMode.PKCS7;
@@ -71,8 +74,6 @@ public class CryptoUtils :ICryptoUtils
 
     }
 
+    }
 }
-
-
-
 

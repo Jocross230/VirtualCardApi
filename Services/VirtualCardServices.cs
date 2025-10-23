@@ -10,11 +10,11 @@ using VirtualCard.Help;
 using VirtualCard.Model;
 using VirtualCard.Request;
 using VirtualCard.TokenResponses;
-using VisualCard.Helper;
-using VisualCard.Interface;
+using VirtualCard.Helper;
+using VirtualCard.Interface;
 using RestClientOptions = RestSharp.RestClientOptions;
 
-namespace VisualCard.Services
+namespace VirtualCard.Services
 {
     public class VirtualCardServices : IVirtualCard
     {
@@ -50,7 +50,7 @@ namespace VisualCard.Services
             _contxt = contxt;
         }
 
-       
+
         public async Task<EncryptResponse> BlockCardAsync(EncryptRequest encryptRequest)
         {
             var encryptResponse = new EncryptResponse();
@@ -68,7 +68,7 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 var newRequest = new BlockCard
                 {
                     accountNumber = decrypted.accountNumber,
@@ -77,13 +77,13 @@ namespace VisualCard.Services
 
                 var serializedPayload = JsonConvert.SerializeObject(newRequest);
 
-                
+
                 string encryptedData = _cryptoUtils.EncryptData(serializedPayload, _configuration["AppSettings:enc_key"]);
 
-                
+
                 var tokenResponse = await _generateToken.GetToken2();
 
-                
+
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v1/cardBlock", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
@@ -112,11 +112,11 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
                 _logger.LogInformation("✅ Decrypted downstream response: {Response}", decryptedData);
 
-                
+
                 BlockedCard? apiResponse;
                 try
                 {
@@ -133,7 +133,7 @@ namespace VisualCard.Services
                     };
                 }
 
-                
+
                 if (apiResponse == null)
                 {
                     apiResponse = new BlockedCard
@@ -144,7 +144,7 @@ namespace VisualCard.Services
                     };
                 }
 
-                
+
                 sdata = JsonConvert.SerializeObject(apiResponse);
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
 
@@ -178,9 +178,9 @@ namespace VisualCard.Services
 
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<ChangePinRequest>(decrypt);
-                if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber) 
-                    || string.IsNullOrEmpty(decrypted.oldPin) || 
-                    string.IsNullOrEmpty(decrypted.cardReference) || 
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber)
+                    || string.IsNullOrEmpty(decrypted.oldPin) ||
+                    string.IsNullOrEmpty(decrypted.cardReference) ||
                     string.IsNullOrEmpty(decrypted.newPin))
                 {
                     _logger.LogWarning("Decryption failed");
@@ -198,10 +198,16 @@ namespace VisualCard.Services
                 var deserialize = JsonConvert.SerializeObject(newRequest);
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                
-                var tokenResponse = await _generateToken.GetToken2();
 
-                
+                var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
+
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v1/pinChange", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
@@ -211,19 +217,19 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                
+
                 RestResponse response = await client.ExecuteAsync(request);
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("ChangeCardPin failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to change PIN at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
-
-                
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
-
                 return encryptResponse;
             }
             catch (Exception ex)
@@ -256,7 +262,7 @@ namespace VisualCard.Services
                     string.IsNullOrWhiteSpace(decrypted.accountNumber))
                 {
                     _logger.LogWarning("Decryption failed");
-                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96"); 
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("96");
                     return encryptResponse;
                 }
 
@@ -270,13 +276,20 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-                
+
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/pinReset", Method.Post) 
+                var request = new RestRequest("/virtualcard/api/v1/pinReset", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -287,8 +300,11 @@ namespace VisualCard.Services
                 RestResponse response = await client.ExecuteAsync(request);
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("ResetCardPin failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to reset PIN at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
@@ -296,7 +312,7 @@ namespace VisualCard.Services
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                
+
 
             }
             catch (Exception ex)
@@ -317,16 +333,16 @@ namespace VisualCard.Services
         }
 
 
-        public async Task<EncryptResponse> GetCardStatusAsync(EncryptRequest encryptRequest)//CardStatusRequest erequest)
+        public async Task<EncryptResponse> GetCardStatusAsync(EncryptRequest encryptRequest)
         {
-            
+
             EncryptResponse encryptResponse = new EncryptResponse();
             var sdata = string.Empty;
             try
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
-                
-                if (decrypt== "96")
+
+                if (decrypt == "96")
                 {
                     _logger.LogWarning("❌ Decryption failed — returned system error code 96.");
                     encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes("System malfunction");
@@ -342,9 +358,16 @@ namespace VisualCard.Services
 
                 string encryptedData = _cryptoUtils.EncryptData(deserialize, _configuration["AppSettings:enc_key"]);
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v1/cardStatus", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v1/cardStatus", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -355,8 +378,11 @@ namespace VisualCard.Services
                 RestResponse response = await client.ExecuteAsync(request);
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("GetCardStatus failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to fetch card status at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
@@ -408,7 +434,7 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 var accountInfo = SunTrustProxy.getAccountBynumber(accountId);
                 if (accountInfo == null || accountInfo.responseCode != "00" || accountInfo.Items == null || !accountInfo.Items.Any())
                 {
@@ -419,7 +445,7 @@ namespace VisualCard.Services
 
                 var customer = accountInfo.Items[0];
 
-                
+
                 var newRequest = new CreateCard
                 {
                     lastName = customer.LastName,
@@ -446,6 +472,13 @@ namespace VisualCard.Services
                 string encryptedData = _cryptoUtils.EncryptData(jsonToEncrypt, _configuration["AppSettings:denc_key"]);
 
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
                 var client = new RestClient(_configuration["AppSettings:BaseUrl"]);
                 var request = new RestRequest("/virtualcard/api/v2/createCard", Method.Post)
@@ -460,11 +493,14 @@ namespace VisualCard.Services
 
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Card creation failed: {response.StatusCode}, {errorMessage}");
+                    _logger.LogError("CreateCard failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to create card at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
-             
+
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:denc_key"]);
                 var decryptedCardResponse = JsonConvert.DeserializeObject<Roots>(decryptedData);
 
@@ -476,7 +512,7 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 var savedCard = new CreatedCard
                 {
                     alias = card.alias,
@@ -534,7 +570,7 @@ namespace VisualCard.Services
 
                 return encryptResponse;
             }
-        } 
+        }
         private bool IsBase64String(string base64)
         {
             try
@@ -549,8 +585,21 @@ namespace VisualCard.Services
         }
         private string MaskPan(string pan)
         {
-            if (string.IsNullOrEmpty(pan) || pan.Length < 10)
-                throw new ArgumentException("PAN must be at least 10 digits long.", nameof(pan));
+            if (string.IsNullOrWhiteSpace(pan))
+            {
+                _logger.LogWarning("MaskPan: PAN is null or empty");
+                return string.Empty;
+            }
+
+            if (pan.Length < 10)
+            {
+                _logger.LogWarning("MaskPan: PAN length {Length} is shorter than expected", pan.Length);
+                if (pan.Length >= 4)
+                {
+                    return new string('*', pan.Length - 4) + pan.Substring(pan.Length - 4);
+                }
+                return new string('*', pan.Length);
+            }
 
             int maskLength = pan.Length - 10;
             string maskedSection = new string('*', maskLength);
@@ -580,13 +629,15 @@ namespace VisualCard.Services
 
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
-                // 5. Create HTTP client and request
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v1/fetchCardsByChannel", Method.Post) // Corrected endpoint
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
@@ -596,25 +647,21 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
                 RestResponse response = await client.ExecuteAsync(request);
 
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("FetchCardsByCreationChannel failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to fetch cards at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
-
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                // return decryptedData;
             }
             catch (Exception ex)
             {
@@ -653,38 +700,46 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-               
+
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-               
-                var tokenResponse = await _generateToken.GetToken2();
 
-                // Create the HTTP client and request
+                var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
+
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v2/fetchCards", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
                     .AddHeader("Authorization", $"Bearer {tokenResponse.AccessToken.Trim()}")
-                    .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
-                    .AddBody(encryptedData);  // Ensure proper formatting
+                    .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"]) 
+                    .AddBody(encryptedData);
 
-                // Send the request
                 RestResponse response = await client.ExecuteAsync(request);
 
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("FetchCardExcluded failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to fetch card at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
-                
+
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                
+
             }
             catch (Exception ex)
             {
@@ -710,7 +765,7 @@ namespace VisualCard.Services
             {
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<FetchCardRequest1>(decrypt);
-                
+
 
                 if (decrypted == null || string.IsNullOrEmpty(decrypted.cardReference) || string.IsNullOrEmpty(decrypted.pin))
                 {
@@ -726,21 +781,20 @@ namespace VisualCard.Services
                 };
 
                 var deserialize = JsonConvert.SerializeObject(newRequest);
-                /*var json = JsonConvert.SerializeObject(req);
-                var businesstypeencrypt = _dataEncryption.EncryptStringToBytes_Aes(json);
-                var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(businesstypeencrypt);*/
 
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
-                // 3. Validate Base64 encoding
-
-
-                // 4. Retrieve a fresh access to
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
-                // 5. Create HTTP client and request
                 var client = new RestClient("https://virtualcard.interswitchng.com");
-                var request = new RestRequest("/virtualcard/api/v2/fetchCards", Method.Post) // Corrected endpoint
+                var request = new RestRequest("/virtualcard/api/v2/fetchCards", Method.Post)
                     .AddHeader("IssuerID", _configuration["AppSettings:IssuerID"])
                     .AddHeader("Content-Type", "application/json")
                     .AddHeader("Accept", "application/json")
@@ -748,26 +802,22 @@ namespace VisualCard.Services
                     .AddHeader("ChannelID", _configuration["AppSettings:ChannelID"])
                     .AddBody(encryptedData);
 
-                // 6. Execute the request
                 RestResponse response = await client.ExecuteAsync(request);
 
-                // 7. Handle errors
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("FetchCardIncluded failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to fetch card at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
-
-                // var jsonresponse = await response.Content.ReadAsStringAsync();
-                // string decryptdata = _cryptoUtils.DecryptData(jsonresponse, _configuration["AppSettings:enc_key"]);
-                //return decryptdata;
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
 
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
-                //return decryptedData;
             }
             catch (Exception ex)
             {
@@ -794,7 +844,7 @@ namespace VisualCard.Services
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<GetStatementRequest>(decrypt);
 
-                if (decrypted == null || string.IsNullOrEmpty(decrypted.cardReference) 
+                if (decrypted == null || string.IsNullOrEmpty(decrypted.cardReference)
                     || string.IsNullOrEmpty(decrypted.fromDate)
                     || string.IsNullOrEmpty(decrypted.toDate))
                 {
@@ -818,6 +868,13 @@ namespace VisualCard.Services
                 string encryptedData = _cryptoUtils.EncryptData(decrypt, _configuration["AppSettings:enc_key"]);
 
                 var tokenResponse = await _generateToken.GetToken2();
+                if (tokenResponse == null || string.IsNullOrWhiteSpace(tokenResponse.AccessToken))
+                {
+                    var resp = new { statuscode = "96", statusmessage = "Authentication failed. Please try again later." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
+                }
 
                 var client = new RestClient("https://virtualcard.interswitchng.com");
                 var request = new RestRequest("/virtualcard/api/v1/statement", Method.Post)
@@ -832,8 +889,11 @@ namespace VisualCard.Services
 
                 if (!response.IsSuccessful)
                 {
-                    string errorMessage = response.Content ?? "Unknown error occurred.";
-                    throw new Exception($"Error: {response.StatusCode}, Details: {errorMessage}");
+                    _logger.LogError("GetStatement failed: {Status} - {Body}", response.StatusCode, response.Content);
+                    var resp = new { statuscode = "06", statusmessage = "Unable to retrieve statement at this time." };
+                    sdata = JsonConvert.SerializeObject(resp);
+                    encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(sdata);
+                    return encryptResponse;
                 }
 
                 string decryptedData = _cryptoUtils.DecryptData(response.Content, _configuration["AppSettings:enc_key"]);
@@ -856,7 +916,7 @@ namespace VisualCard.Services
             }
         }
 
-       
+
         public async Task<EncryptResponse> UnblockCardAsync(EncryptRequest encryptRequest)
         {
             var encryptResponse = new EncryptResponse();
@@ -864,11 +924,11 @@ namespace VisualCard.Services
 
             try
             {
-                
+
                 var decrypt = _dataEncryption.DecryptStringFromBytes_Aes(encryptRequest.Request);
                 var decrypted = JsonConvert.DeserializeObject<UnBlockCard>(decrypt);
 
-                
+
                 if (decrypted == null || string.IsNullOrEmpty(decrypted.accountNumber) || string.IsNullOrEmpty(decrypted.cardReference))
                 {
                     _logger.LogWarning("Decryption failed");
@@ -876,7 +936,7 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 var newRequest = new UnBlockCard
                 {
                     accountNumber = decrypted.accountNumber,
@@ -885,10 +945,10 @@ namespace VisualCard.Services
                 var serializedPayload = JsonConvert.SerializeObject(newRequest);
                 string encryptedData = _cryptoUtils.EncryptData(serializedPayload, _configuration["AppSettings:enc_key"]);
 
-                
+
                 var tokenResponse = await _generateToken.GetToken2();
 
-                
+
                 var url = $"{_configuration.GetValue<string>("BaseUrl")}/virtualcard/api/v1/cardUnblock";
                 using var httpRequest = new HttpRequestMessage(HttpMethod.Post, url);
                 httpRequest.Headers.Add("IssuerID", _configuration["AppSettings:IssuerID"]);
@@ -897,10 +957,10 @@ namespace VisualCard.Services
                 httpRequest.Headers.Add("ChannelID", _configuration["AppSettings:ChannelID"]);
                 httpRequest.Content = new StringContent(encryptedData, Encoding.UTF8, "text/plain");
 
-                
+
                 var response = await _httpClient.SendAsync(httpRequest);
 
-                
+
                 if (!response.IsSuccessStatusCode)
                 {
                     var failResp = new UnblockedCard
@@ -914,11 +974,11 @@ namespace VisualCard.Services
                     return encryptResponse;
                 }
 
-                
+
                 var jsonResponse = await response.Content.ReadAsStringAsync();
                 var decryptedData = _cryptoUtils.DecryptData(jsonResponse, _configuration["AppSettings:enc_key"]);
 
-                
+
                 encryptResponse.Response = _dataEncryption.EncryptStringToBytes_Aes(decryptedData);
 
                 return encryptResponse;
@@ -946,7 +1006,7 @@ namespace VisualCard.Services
         public async Task<CreatedCard> GetByUserIdAsync(string UserId)
         {
             var result = await _context.CreatedCards.FirstOrDefaultAsync(s => s.customerId == UserId);
-           
+
             return result;
         }
 
@@ -968,7 +1028,7 @@ namespace VisualCard.Services
             {
 
 
-                _context.VirtualCardTransactionDisputes.Add(dis); 
+                _context.VirtualCardTransactionDisputes.Add(dis);
                 await _context.SaveChangesAsync();
 
 
@@ -1011,7 +1071,7 @@ namespace VisualCard.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "An error occurred while fetching card details for profile ID: {ProfileId}", profileId);
-                throw;
+                return null;
             }
         }
 

@@ -1,4 +1,4 @@
-﻿namespace VirtualCard.Request
+namespace VirtualCard.Dtos
 {
     public class ChangePinResponse
     {

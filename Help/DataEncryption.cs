@@ -3,16 +3,16 @@ using System.Text;
 
 namespace VirtualCard.Help
 {
-    public class DataEncryption :IDataEncryption
+    public class DataEncryption : IDataEncryption
     {
         private readonly string _key;
 
         public DataEncryption(IConfiguration configuration)
         {
-            
+
             _key = configuration["key:AesKey"];
 
-           
+
         }
         public string EncryptStringToBytes_Aes(string plainText)
         {
@@ -35,9 +35,9 @@ namespace VirtualCard.Help
             catch (Exception ex)
             {
                 Console.WriteLine($"Encryption error: {ex.Message}");
-                throw;
+                return "96";
             }
-            
+
         }
 
         public string DecryptStringFromBytes_Aes(string cipherText)
@@ -61,11 +61,11 @@ namespace VirtualCard.Help
             catch (Exception ex)
             {
                 Console.WriteLine($"Decryption error: {ex.Message}");
-                return "96"; // your system error code
+                return "96";
             }
         }
-       
+
 
     }
-    
+
 }

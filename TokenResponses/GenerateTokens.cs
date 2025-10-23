@@ -26,34 +26,34 @@ namespace VirtualCard.TokenResponses
 
         public async Task<ResponseToken> GetToken2()
         {
-            
+
             if (_cachedToken != null && DateTime.Now < _tokenExpiryTime)
             {
                 _logger.LogInformation("Using cached OAuth token, valid until {Expiry}", _tokenExpiryTime);
                 return _cachedToken;
             }
 
-           
+
             var tokenUrl = _config["VirtualCardApi:TokenUrl"];
-            var base64Auth = _config["OAuth:Authorization"]; 
-            var cookieValue = _config["OAuth:Cookie"];       
+            var base64Auth = _config["OAuth:Authorization"];
+            var cookieValue = _config["OAuth:Cookie"];
 
             if (string.IsNullOrEmpty(tokenUrl) || string.IsNullOrEmpty(base64Auth))
             {
                 _logger.LogError("Token URL or Authorization header missing in configuration.");
-                throw new Exception("Missing Token URL or Authorization key in configuration.");
+                return null;
             }
 
             using var request = new HttpRequestMessage(HttpMethod.Post, tokenUrl);
 
-            
+
             request.Headers.Add("Authorization", base64Auth);
             request.Headers.Add("Accept", "application/json");
 
             if (!string.IsNullOrEmpty(cookieValue))
                 request.Headers.Add("Cookie", cookieValue);
 
-            
+
             request.Content = new FormUrlEncodedContent(new[]
             {
         new KeyValuePair<string, string>("grant_type", "client_credentials"),
@@ -69,7 +69,7 @@ namespace VirtualCard.TokenResponses
                 {
                     var errorContent = await response.Content.ReadAsStringAsync();
                     _logger.LogError("Token request failed: {StatusCode} - {Error}", response.StatusCode, errorContent);
-                    throw new Exception($"Failed to get token: {response.StatusCode} - {errorContent}");
+                    return null;
                 }
 
                 var responseString = await response.Content.ReadAsStringAsync();
@@ -78,10 +78,10 @@ namespace VirtualCard.TokenResponses
                 if (tokenResponse == null || string.IsNullOrEmpty(tokenResponse.AccessToken))
                 {
                     _logger.LogError("Invalid or empty token response received.");
-                    throw new Exception("Invalid token response received.");
+                    return null;
                 }
 
-                
+
                 _cachedToken = tokenResponse;
                 _tokenExpiryTime = DateTime.Now.AddSeconds(tokenResponse.ExpiresIn - 60);
 
@@ -91,7 +91,7 @@ namespace VirtualCard.TokenResponses
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred while retrieving OAuth token.");
-                throw;
+                return null;
             }
         }
 
