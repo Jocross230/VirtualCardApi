@@ -1,0 +1,52 @@
+# Build and object folders
+bin/
+obj/
+
+# User-specific files
+*.user
+*.rsuser
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Visual Studio cache/options
+.vs/
+
+# Rider
+.idea/
+*.sln.iml
+
+# Logs
+*.log
+
+# Publish outputs
+[Bb]uild/
+**/publish/
+*.pubxml.user
+
+# Resharper
+_ReSharper*/
+
+# NuGet
+*.nupkg
+# The packages folder can be ignored because of Package Restore
+**/[Pp]ackages/*
+# except build/, which is used as an MSBuild target.
+!**/[Pp]ackages/build/
+!**/[Pp]ackages/buildMultiTargeting/
+!**/[Pp]ackages/*/build/
+
+# Azure
+*.azurePubxml
+
+# Coverage
+coverage/
+*.coverage
+*.coveragexml
+
+# Other
+*.zip
+*.7z
+*.rar
+*.gz
+*.tar

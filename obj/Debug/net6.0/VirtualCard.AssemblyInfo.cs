@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("VirtualCard")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+7a300dbc1ed266a40dadc1fa777cab50e6a31857")]
 [assembly: System.Reflection.AssemblyProductAttribute("VirtualCard")]
 [assembly: System.Reflection.AssemblyTitleAttribute("VirtualCard")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
