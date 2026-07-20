@@ -7,7 +7,6 @@ using VirtualCard.Dtos;
 
 namespace VirtualCard.Controllers
 {
-
     [Route("api/[controller]")]
     [ApiController]
     public class VirtualCardController : ControllerBase
