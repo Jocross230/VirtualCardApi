@@ -1,7 +1,5 @@
 ﻿using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
-
-
 namespace VirtualCard.Services
 {
     public class EnumSchemaFilter : ISchemaFilter
