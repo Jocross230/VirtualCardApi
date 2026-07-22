@@ -7,7 +7,6 @@ namespace VirtualCard.Services
     {
         public void Apply(OpenApiSchema schema, SchemaFilterContext context)
         {
-        
             if (context.Type.IsEnum)
             {
                 schema.Enum.Clear();
